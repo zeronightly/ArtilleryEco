@@ -615,7 +615,6 @@ namespace seq
 
 			auto allocate(size_t n) -> Char*
 			{
-				throw std::bad_alloc();
 				return nullptr;
 			}
 			void deallocate(Char* /*unused*/, size_t /*unused*/) noexcept {}
@@ -1037,16 +1036,10 @@ namespace seq
 			// intialize the string for given size
 			if (!d_data.setSize(size)) {
 				// non sso
-				try {
 					d_data.d_union.non_sso.data = d_data.allocate(size + char_offset + 1);
 					write_size_t(d_data.d_union.non_sso.data, size + 1);
 					d_data.d_union.non_sso.data[size + char_offset] = 0;
 					return d_data.d_union.non_sso.data + char_offset;
-				}
-				catch (...) {
-					d_data.reset();
-					throw;
-				}
 			}
 			else
 				d_data.d_union.sso.data[size] = 0;
@@ -1450,15 +1443,11 @@ namespace seq
 		/// @brief Returns the character at pos, throw std::out_of_range for invalid position.
 		SEQ_STR_INLINE Char at(size_t pos) const
 		{
-			if (pos >= size())
-				throw std::out_of_range("");
 			return data()[pos];
 		}
 		/// @brief Returns the character at pos, throw std::out_of_range for invalid position.
 		SEQ_STR_INLINE Char& at(size_t pos)
 		{
-			if (pos >= size())
-				throw std::out_of_range("");
 			return data()[pos];
 		}
 
@@ -1920,8 +1909,6 @@ namespace seq
 		/// Returns the number of copied characters.
 		auto copy(Char* s, size_t len, size_t pos = 0) const -> size_t
 		{
-			if (pos > size())
-				throw std::out_of_range("tiny_string::copy out of range");
 			if (len == npos || pos + len > size())
 				len = size() - pos;
 			memcpy(s, data() + pos, len * sizeof(Char));
@@ -1931,8 +1918,6 @@ namespace seq
 		// @brief Returns a sub-part of this string as a tstring_view object
 		auto substr(size_t pos, size_t len = npos) const -> tiny_string<Char, Traits, view_allocator<Char>, 0>
 		{
-			if (pos > size())
-				throw std::out_of_range("tiny_string::substr out of range");
 			if (len == npos || pos + len > size())
 				len = size() - pos;
 			return tiny_string<Char, Traits, view_allocator<Char>, 0>(begin() + pos, len);
@@ -2264,9 +2249,6 @@ namespace seq
 
 		auto at(size_t pos) const -> Char
 		{
-			if (pos >= size()) {
-				throw std::out_of_range("");
-			}
 			return data()[pos];
 		}
 		auto operator[](size_t pos) const noexcept -> Char { return data()[pos]; }
@@ -2308,9 +2290,7 @@ namespace seq
 
 		auto copy(Char* s, size_t len, size_t pos = 0) const -> size_t
 		{
-			if (pos > size()) {
-				throw std::out_of_range("tiny_string::copy out of range");
-			}
+
 			if (len == npos || pos + len > size()) {
 				len = size() - pos;
 			}
@@ -2320,9 +2300,7 @@ namespace seq
 
 		auto substr(size_t pos = 0, size_t len = npos) const -> tiny_string
 		{
-			if (pos > size()) {
-				throw std::out_of_range("tiny_string::substr out of range");
-			}
+
 			if (len == npos || pos + len > size()) {
 				len = size() - pos;
 			}
@@ -3067,7 +3045,6 @@ namespace seq
 			const c_type& ctype_fac = std::use_facet<c_type>(iss.getloc());
 			str.clear();
 
-			try {
 				size_type size = 0 < iss.width() && static_cast<size_type>(iss.width()) < str.max_size() ? static_cast<size_type>(iss.width()) : str.max_size();
 				typename Traits::int_type _Meta = iss.rdbuf()->sgetc();
 
@@ -3082,10 +3059,6 @@ namespace seq
 						str.append(1, Traits::to_char_type(_Meta));
 						changed = true;
 					}
-			}
-			catch (...) {
-				iss.setstate(std::ios_base::badbit);
-			}
 		}
 
 		iss.width(0);
@@ -3110,7 +3083,6 @@ namespace seq
 		if (!sok)
 			state |= std::ios_base::badbit;
 		else { // state okay, insert characters
-			try {
 				if ((oss.flags() & std::ios_base::adjustfield) != std::ios_base::left)
 					for (; 0 < pad; --pad) // pad on left
 						if (Traits::eq_int_type(Traits::eof(),
@@ -3129,11 +3101,6 @@ namespace seq
 							break;
 						}
 				oss.width(0);
-			}
-			catch (...) {
-				oss.setstate(std::ios_base::badbit);
-				throw;
-			}
 		}
 
 		oss.setstate(state);

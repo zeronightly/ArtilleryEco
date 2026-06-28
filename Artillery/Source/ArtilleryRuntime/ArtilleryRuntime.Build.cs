@@ -8,7 +8,7 @@ public class ArtilleryRuntime : ModuleRules
 	{
 		//PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		bEnableExceptions = true;
+		
 		PublicIncludePaths.AddRange(
 			new string[] {
 				Path.Combine(PluginDirectory,"Source/ArtilleryRuntime/"),
@@ -43,17 +43,23 @@ public class ArtilleryRuntime : ModuleRules
 				"Bristlecone",
 				"SkeletonKey",
 				"Barrage",
-				"BarrageEditor",
 				"Cabling",
 				"LocomoCore",
 				"Niagara", 
 				"Niagara", 
 				"JoltPhysics", 
 				"MegafunkUtils",
+				"ImGui",
+				"DeveloperSettings"
+
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
-
+		
+		if (Target.Type == TargetType.Editor)
+		{
+			PublicDependencyModuleNames.AddRange(new string[] { "BarrageEditor" });
+		}
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
@@ -72,7 +78,10 @@ public class ArtilleryRuntime : ModuleRules
 				"Barrage", 
 				"LocomoCore",
 				"Landscape",
-				// ... add private dependencies that you statically link with here ...	
+				"Sockets",
+				"Networking",
+				"DeveloperSettings"
+				// ... add private dependencies that you statically link with here ...
 			}
 			);
 		

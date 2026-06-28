@@ -35,7 +35,7 @@ public:
 
 	//this just sets the gunkey.
 	//this mock doesn't use the delegate chaining, because it doesn't use abilities.
-	FMockArtilleryGun(const FGunKey& KeyFromDispatch)
+	FMockArtilleryGun(const FGunKey& KeyFromDispatch, UArtilleryDispatch* Dispatch)
 	{
 		MyGunKey = KeyFromDispatch;
 	};
@@ -62,7 +62,6 @@ public:
 		FGameplayAbilitySpecHandle Handle) 
 		override
 	{
-		throw;
 	}
 
 	virtual void PostFireGun(
@@ -75,7 +74,6 @@ public:
 		FGameplayAbilitySpecHandle Handle) 
 		override
 	{
-		throw;
 	}
 	
 	virtual bool Initialize(

@@ -1,5 +1,7 @@
+#include "BarrageDispatch.h"
 #include "Misc/AutomationTest.h"
 #include "FBarragePrimitive.h"
+#include "Tests/AutomationCommon.h"
 
 /**
 * These tests cover the basic functionality of the FBarragePrimitive class. The static helpers for the instances
@@ -8,16 +10,36 @@
 **/
 
 BEGIN_DEFINE_SPEC(FBarragePrimitiveTests, "Artillery.Barrage.Barrage Primitive Tests", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+FTestWorldWrapper TestWorldWrapper;
+UBarrageDispatch* BarrageDispatch;
 END_DEFINE_SPEC(FBarragePrimitiveTests)
 void FBarragePrimitiveTests::Define()
 {
+	
+	
+	BeforeEach([this]()
+	{
+		// Create a new world for testing
+		TestWorldWrapper.CreateTestWorld(EWorldType::Game);
+		UWorld* TestWorld = TestWorldWrapper.GetTestWorld();
+		TestNotNull("Test world should be created", TestWorld);
+
+		if (TestWorld) 
+		{
+			TestWorldWrapper.BeginPlayInTestWorld();
+				
+			BarrageDispatch = TestWorld->GetSubsystem<UBarrageDispatch>();
+			TestNotNull("BarrageDispatch subsystem should be created", BarrageDispatch);
+		}
+	});
 	Describe("Initial State of a Primitive", [this]()
 		{
 			It("should use the given keys, not marked for tombstoning, and uninitialized.", [this]()
 				{
 					FBarrageKey GivenIntoKey;
 					FSkeletonKey GivenOutOfKey;
-					FBarragePrimitive ClassUnderTest(GivenIntoKey, GivenOutOfKey);
+					FBarragePrimitive ClassUnderTest(GivenIntoKey, GivenOutOfKey, BarrageDispatch->JoltGameSim.Get());
 
 					TestEqual("KeyIntoBarrage", ClassUnderTest.KeyIntoBarrage, GivenIntoKey);
 					TestEqual("KeyOutOfBarrage", ClassUnderTest.KeyOutOfBarrage, GivenOutOfKey);

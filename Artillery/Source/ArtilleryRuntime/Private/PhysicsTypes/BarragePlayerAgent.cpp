@@ -1,7 +1,7 @@
 #include "PhysicsTypes/BarragePlayerAgent.h"
 
 #include "FWorldSimOwner.h"
-
+#include "Geometry/aim.h"
 
 
 void UBarragePlayerAgent::UpdateDetailedGroundState(FVector3d& ground)
@@ -14,20 +14,23 @@ void UBarragePlayerAgent::UpdateDetailedGroundState(FVector3d& ground)
 
 	// Check directional down casts to see if the player might be pretty close to the ground
 	float downD = ShortCastTo(FVector3d::DownVector);
-	float forwardD = ShortCastTo((FVector3d::DownVector + CHAOS_LastGameFrameForwardVector.GetSafeNormal()).GetSafeNormal());
-	float rightD = ShortCastTo((FVector3d::DownVector + CHAOS_LastGameFrameRightVector.GetSafeNormal()).GetSafeNormal());
+	float forwardD = ShortCastTo(
+		(FVector3d::DownVector + CHAOS_LastGameFrameForwardVector.GetSafeNormal()).GetSafeNormal());
+	float rightD =
+		ShortCastTo((FVector3d::DownVector + CHAOS_LastGameFrameRightVector.GetSafeNormal()).GetSafeNormal());
 	float leftD = ShortCastTo((FVector3d::DownVector - CHAOS_LastGameFrameRightVector.GetSafeNormal()).GetSafeNormal());
-	float rearD = ShortCastTo((FVector3d::DownVector - CHAOS_LastGameFrameForwardVector.GetSafeNormal()).GetSafeNormal());
+	float rearD = ShortCastTo(
+		(FVector3d::DownVector - CHAOS_LastGameFrameForwardVector.GetSafeNormal()).GetSafeNormal());
 
 	float max = FMath::Max3(FMath::Max(rightD, leftD), FMath::Max(forwardD, rearD), downD);
 	float min = FMath::Min3(FMath::Min(rightD, leftD), forwardD, rearD);
 
-	char value = States.GroundNone;//start by assuming we're in the air.
+	char value = States.GroundNone; //start by assuming we're in the air.
 
-	if (min == -1)//degraded state, assume ground close!!! we must revert to normal gravity and begin to fall.
+	if (min == -1) //degraded state, assume ground close!!! we must revert to normal gravity and begin to fall.
 	{
 		value |= States.GroundContactPoor;
-		value |= States.GroundClose;// we don't actually know WHERE we are.
+		value |= States.GroundClose; // we don't actually know WHERE we are.
 	}
 
 	if (max < HowCloseIsGroundWithinError) //if we're very close to the ground, treat us as grounded.
@@ -117,10 +120,13 @@ bool UBarragePlayerAgent::RegistrationImplementation()
 		}
 	}
 
-	if (!IsReady && MyParentObjectKey != 0 && !GetOwner()->GetActorLocation().ContainsNaN()) // this could easily be just the !=, but it's better to have the whole idiom in the example
+	if (!IsReady && MyParentObjectKey != 0 && !GetOwner()->GetActorLocation().ContainsNaN())
+	// this could easily be just the !=, but it's better to have the whole idiom in the example
 	{
-		FBCharParams params = FBarrageBounder::GenerateCharacterBounds(GetOwner()->GetActorLocation(), radius, extent, HardMaxVelocity);
-		MyBarrageBody = GetWorld()->GetSubsystem<UBarrageDispatch>()->CreatePrimitive(params, MyParentObjectKey, Layers::MOVING);
+		FBCharParams params = FBarrageBounder::GenerateCharacterBounds(GetOwner()->GetActorLocation(), radius, extent,
+		                                                               HardMaxVelocity);
+		MyBarrageBody = GetWorld()->GetSubsystem<UBarrageDispatch>()->CreatePrimitive(
+			params, MyParentObjectKey, Layers::MOVING);
 		if (MyBarrageBody && MyBarrageBody->tombstone == 0 && MyBarrageBody->Me != FBShape::Uninitialized)
 		{
 			IsReady = true;
@@ -132,8 +138,12 @@ bool UBarragePlayerAgent::RegistrationImplementation()
 
 void UBarragePlayerAgent::AddBarrageForce(float Duration)
 {
-	//I'll be back for youuuu.
-	throw;
+	UE_LOG(
+		LogTemp,
+		Fatal,
+		TEXT(
+			"ArtilleryDispatch:: Add Barrage Force is not implemented for Player Agents. It's also frankly a bad idea."
+		));
 }
 
 //returns distance to target as magnitude (always positive) or -1 for no hit.
@@ -145,7 +155,7 @@ float UBarragePlayerAgent::ShortCastTo(const FVector3d& Direction)
 	if (!MyBarrageBody || MyPos.ContainsNaN())
 	{
 		return -1; // please, leave us be.
-	}// The actor calling this sure as hell better be allocated already
+	} // The actor calling this sure as hell better be allocated already
 
 	if (Hitmark::ShortCast)
 	{
@@ -172,13 +182,19 @@ float UBarragePlayerAgent::ShortCastTo(const FVector3d& Direction)
 		default_body_filter);
 
 	const int32 TestVar = Hitmark::ShortCast->MyItem;
-	return  TestVar == JPH::BodyID::cInvalidBodyID || TestVar == MungeSafety ? ShortcastMaxRange * 2 : Hitmark::ShortCast->Distance;
+	return TestVar == JPH::BodyID::cInvalidBodyID || TestVar == MungeSafety
+		       ? ShortcastMaxRange * 2
+		       : Hitmark::ShortCast->Distance;
 }
 
 void UBarragePlayerAgent::ApplyRotation(float Duration, FQuat4f Rotation)
 {
-	//I'll be back for youuuu.
-	throw;
+	UE_LOG(
+		LogTemp,
+		Fatal,
+		TEXT(
+			"ArtilleryDispatch:: Don't spin players like this. That makes them throw up. Seriously. Use the normal motion model."
+		));
 }
 
 void UBarragePlayerAgent::AddOneTickOfForce(FVector3d Force)
@@ -212,9 +228,9 @@ void UBarragePlayerAgent::AddOneTickOfForce_LungeOnly(FVector3d Force)
 void UBarragePlayerAgent::SetThrottleModel(double carryover, double gravity, double locomotion, double forces)
 {
 	FQuat4d DANGER = FQuat4d(carryover >= 0 ? carryover : ThrottleModel.X,
-		gravity >= 0 ? gravity : ThrottleModel.Y,
-		locomotion >= 0 ? locomotion : ThrottleModel.Z,
-		forces >= 0 ? forces : ThrottleModel.W);
+	                         gravity >= 0 ? gravity : ThrottleModel.Y,
+	                         locomotion >= 0 ? locomotion : ThrottleModel.Z,
+	                         forces >= 0 ? forces : ThrottleModel.W);
 	ThrottleModel = DANGER;
 	FBarragePrimitive::Apply_Unsafe(DANGER, MyBarrageBody, PhysicsInputType::Throttle);
 }
@@ -241,12 +257,13 @@ void UBarragePlayerAgent::BeginPlay()
 	RegistrationImplementation();
 }
 
-void UBarragePlayerAgent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void UBarragePlayerAgent::TickComponent(float DeltaTime, ELevelTick TickType,
+                                        FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	if (!IsReady)
 	{
-		RegistrationImplementation();// ...
+		RegistrationImplementation(); // ...
 	}
 
 	CHAOS_LastGameFrameRightVector = GetOwner()->GetActorRightVector();
@@ -309,9 +326,11 @@ void UBarragePlayerAgent::ApplyAimFriction(
 				check(TransformDispatch);
 
 				UArtilleryDispatch* ADispatch = GetWorld()->GetSubsystem<UArtilleryDispatch>();
-				if (ADispatch->DoesEntityHaveTag(TargetFiblet->KeyOutOfBarrage, FGameplayTag::RequestGameplayTag("Enemy")))
+				if (ADispatch->DoesEntityHaveTag(TargetFiblet->KeyOutOfBarrage,
+				                                 FGameplayTag::RequestGameplayTag("Enemy")))
 				{
 					TargetPtr = TransformDispatch->GetAActorByObjectKey(TargetFiblet->KeyOutOfBarrage);
+					FrictionTargetBarrageKey = HitBarrageKey;
 				}
 			}
 		}
@@ -319,7 +338,26 @@ void UBarragePlayerAgent::ApplyAimFriction(
 	else
 	{
 		TargetFiblet.Reset();
-		TargetPtr.Reset();
+	}
+
+	//Grace window on target loss. The old code kept the target until the ray hit
+	//empty sky (walls inherited an enemy's friction forever); instant clear strobes
+	//friction off every time the ray jitters across a silhouette edge. So: the
+	//target stays warm for FrictionTargetGraceTicks after the ray leaves it and
+	//re-pins for free if the ray returns. Non-enemies never become friction targets.
+	if (FrictionTargetBarrageKey != 0 && HitBarrageKey == FrictionTargetBarrageKey)
+	{
+		TicksSinceFrictionTargetSeen = 0;
+	}
+	else if (TargetPtr.IsValid())
+	{
+		++TicksSinceFrictionTargetSeen;
+		if (TicksSinceFrictionTargetSeen > FrictionTargetGraceTicks)
+		{
+			TargetPtr.Reset();
+			FrictionTargetBarrageKey = 0;
+			TicksSinceFrictionTargetSeen = 0;
+		}
 	}
 
 	if (TargetPtr.Get() && TargetPtr.IsValid())
@@ -345,10 +383,48 @@ void UBarragePlayerAgent::ApplyAimFriction(
 		if (IsAimMovingTowardPoint(StartingAimVec, DesiredAimVec, VectorToTargetCrit))
 		{
 			FrictionMultiplier = MovingTowardsCritMultiplier; // Keep it easy to aim towards the crit spot
+			//Tracking magnetism, now through aim.h's hardened assist layer
+			//(slerp underneath — no zero-vector or overshoot modes). One target,
+			//the crit marker; the cone is left fully open because this branch
+			//already gates on converging-toward-crit. Strength is derived per
+			//tick so the slerp closes at most MagnetismMaxDegreesPerTick of the
+			//remaining angle: the same cap as the hand-rolled version, but
+			//radial (great-circle) instead of per-axis, so diagonal pulls no
+			//longer get a sqrt(2) bonus. The bend is measured against the
+			//player's DESIRED direction (input applied), then expressed back
+			//into the delta the camera manager integrates.
+			if (MagnetismMaxDegreesPerTick > 0.0)
+			{
+				const FVector3f AimDirF(DesiredAimVec);
+				const FVector3f OriginF(ActorLocation);
+				aim::AimAssistTarget AssistTarget;
+				AssistTarget.center = FVector3f(CritWorldLocation);
+				AssistTarget.radius = 0.f;
+				const float AngleToCrit = aim::vec_angle(
+					AimDirF, (AssistTarget.center - OriginF).GetSafeNormal());
+				aim::AimAssistParams AssistParams;
+				AssistParams.magnetism_angle = 4.0f; // fully open; gated upstream
+				AssistParams.magnetism_strength = AngleToCrit > KINDA_SMALL_NUMBER
+					? FMath::Min(1.0f,
+					             FMath::DegreesToRadians(static_cast<float>(MagnetismMaxDegreesPerTick))
+					             / AngleToCrit)
+					: 0.f;
+				const aim::AimAssistResult Assist = aim::apply_aim_assist(
+					AimDirF, OriginF, &AssistTarget, 1, AssistParams);
+				if (Assist.has_target)
+				{
+					const FRotator AssistDelta =
+						(FVector(Assist.aim_direction).Rotation() - DesiredAimVec.Rotation()).
+						GetNormalized();
+					OutAimRotatorDelta.Yaw += AssistDelta.Yaw;
+					OutAimRotatorDelta.Pitch += AssistDelta.Pitch;
+				}
+			}
 		}
 		else if (IsAimMovingTowardPoint(StartingAimVec, DesiredAimVec, VectorToTargetCockpit))
 		{
-			FrictionMultiplier = MovingTowardsBaseMarkerMultiplier; // Moving away from crit spot but still towards an important point, clamp sensitivity a lil bit
+			FrictionMultiplier = MovingTowardsBaseMarkerMultiplier;
+			// Moving away from crit spot but still towards an important point, clamp sensitivity a lil bit
 		}
 		else
 		{
@@ -399,12 +475,14 @@ bool UBarragePlayerAgent::CalculateAimVector(
 				UTransformDispatch* TransformDispatch = GetWorld()->GetSubsystem<UTransformDispatch>();
 				check(TransformDispatch);
 
-				TWeakObjectPtr<AActor> AimTarget = TransformDispatch->GetAActorByObjectKey(AimAtFiblet->KeyOutOfBarrage);
+				TWeakObjectPtr<AActor> AimTarget = TransformDispatch->
+					GetAActorByObjectKey(AimAtFiblet->KeyOutOfBarrage);
 				UArtilleryDispatch* ADispatch = GetWorld()->GetSubsystem<UArtilleryDispatch>();
 
 				if (AimTarget.IsValid())
 				{
-					if (ADispatch->DoesEntityHaveTag(AimAtFiblet->KeyOutOfBarrage, FGameplayTag::RequestGameplayTag("Enemy")))
+					if (ADispatch->DoesEntityHaveTag(AimAtFiblet->KeyOutOfBarrage,
+					                                 FGameplayTag::RequestGameplayTag("Enemy")))
 					{
 						OutTargetAimAtLocation = AimTarget->GetActorLocation();
 						TargetKey = AimAtFiblet->KeyOutOfBarrage;
@@ -414,7 +492,14 @@ bool UBarragePlayerAgent::CalculateAimVector(
 					}
 
 					const FVector SearchLocation = HitObjectResult.Get()->Location;
-					double DistanceToNearest = 1.f;
+					//Oni-style prioritization: candidates are GATED by center-distance
+					//to the hit point (the adoption radius), but RANKED by how close
+					//the aim ray passes to their center — you adopt the enemy you are
+					//actually aimed at, not whichever one happens to be standing
+					//nearest the wall you struck. With one candidate they agree; in a
+					//cluster they very much do not.
+					const FRay3f AimRay(FVector3f(ActorLocation), FVector3f(Direction), true);
+					double BestRayDistance = TNumericLimits<double>::Max();
 					FSkeletonKey ClosestCurrent = FSkeletonKey::Invalid();
 					FVector ClosestCurrentLocation(0.f);
 					uint32 BodiesFoundNearTarget = 0;
@@ -423,7 +508,9 @@ bool UBarragePlayerAgent::CalculateAimVector(
 					Physics->SphereSearch(
 						MyFiblet->KeyIntoBarrage,
 						SearchLocation,
-						0.25f,
+						//SphereSearch converts the LOCATION to Jolt space but passes the
+						//radius through raw — Jolt wants meters, we hold centimeters.
+						NearMissAdoptionRadius * 0.01f,
 						BroadPhaseFilter,
 						ObjectLayerFilter,
 						BodyFilter,
@@ -441,12 +528,16 @@ bool UBarragePlayerAgent::CalculateAimVector(
 							if (ADispatch->DoesEntityHaveTag(BodyObjectKey, FGameplayTag::RequestGameplayTag("Enemy")))
 							{
 								const FVector3f CurrentBodyLoc = FBarragePrimitive::GetPosition(BodyObjectFiblet);
-								const double DistanceToCurrent = (SearchLocation - FVector(CurrentBodyLoc)).Length();
-								if (DistanceToCurrent < DistanceToNearest)
+								const double DistanceToHit = (SearchLocation - FVector(CurrentBodyLoc)).Length();
+								if (DistanceToHit <= NearMissAdoptionRadius)
 								{
-									DistanceToNearest = DistanceToCurrent;
-									ClosestCurrent = BodyObjectKey;
-									ClosestCurrentLocation = FVector(CurrentBodyLoc);
+									const double RayDistance = aim::ray_point_dist(AimRay, CurrentBodyLoc);
+									if (RayDistance < BestRayDistance)
+									{
+										BestRayDistance = RayDistance;
+										ClosestCurrent = BodyObjectKey;
+										ClosestCurrentLocation = FVector(CurrentBodyLoc);
+									}
 								}
 							}
 						}
@@ -457,6 +548,10 @@ bool UBarragePlayerAgent::CalculateAimVector(
 						OutTargetAimAtLocation = ClosestCurrentLocation;
 						TargetKey = ClosestCurrent;
 						TargetActor = TransformDispatch->GetAActorByObjectKey(ClosestCurrent).Get();
+						//without this return, the fallthrough below overwrote the adopted
+						//aim point with the wall-hit location and reported no lock — the
+						//adoption path could never actually fire.
+						return true;
 					}
 				}
 
@@ -483,15 +578,16 @@ FPrimitiveSceneProxy* UBarragePlayerAgent::CreateSceneProxy()
 
 		FMySceneProxy(const UBarragePlayerAgent* InComponent)
 			: FPrimitiveSceneProxy(InComponent)
-			, CapsuleRadius(InComponent->radius)
-			, CapsuleHalfHeight(InComponent->extent)
-			, bHasBarrageBody(InComponent->GetBarrageBody().IsValid())
-			, BarragePosition(FBarragePrimitive::GetPosition(InComponent->GetBarrageBody()))
+			  , CapsuleRadius(InComponent->radius)
+			  , CapsuleHalfHeight(InComponent->extent)
+			  , bHasBarrageBody(InComponent->GetBarrageBody().IsValid())
+			  , BarragePosition(FBarragePrimitive::GetPosition(InComponent->GetBarrageBody()))
 		{
 			bWillEverBeLit = false;
 		}
 
-		virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override
+		virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily,
+		                                    uint32 VisibilityMap, FMeshElementCollector& Collector) const override
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_GetDynamicMeshElements_DrawDynamicElements);
 
@@ -505,17 +601,23 @@ FPrimitiveSceneProxy* UBarragePlayerAgent::CreateSceneProxy()
 
 			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 			{
-
 				if (VisibilityMap & (1 << ViewIndex))
 				{
 					const FSceneView* View = Views[ViewIndex];
-					const FLinearColor DrawCapsuleColor = GetViewSelectionColor(UEBoxColor, *View, IsSelected(), IsHovered(), false, IsIndividuallySelected());
+					const FLinearColor DrawCapsuleColor = GetViewSelectionColor(
+						UEBoxColor, *View, IsSelected(), IsHovered(), false, IsIndividuallySelected());
 
 					FPrimitiveDrawInterface* PDI = Collector.GetPDI(ViewIndex);
-					DrawWireCapsule(PDI, LocalToWorld.GetOrigin(), LocalToWorld.GetUnitAxis(EAxis::X), LocalToWorld.GetUnitAxis(EAxis::Y), LocalToWorld.GetUnitAxis(EAxis::Z), DrawCapsuleColor, CapsuleRadius, CapsuleHalfHeight, CapsuleSides, SDPG_World, UELineThickness);
+					DrawWireCapsule(PDI, LocalToWorld.GetOrigin(), LocalToWorld.GetUnitAxis(EAxis::X),
+					                LocalToWorld.GetUnitAxis(EAxis::Y), LocalToWorld.GetUnitAxis(EAxis::Z),
+					                DrawCapsuleColor, CapsuleRadius, CapsuleHalfHeight, CapsuleSides, SDPG_World,
+					                UELineThickness);
 					if (bHasBarrageBody)
 					{
-						DrawWireCapsule(PDI, FVector(BarragePosition), LocalToWorld.GetUnitAxis(EAxis::X), LocalToWorld.GetUnitAxis(EAxis::Y), LocalToWorld.GetUnitAxis(EAxis::Z), BarrageColor, CapsuleRadius, CapsuleHalfHeight, CapsuleSides, SDPG_World, BarrageLineThickness);
+						DrawWireCapsule(PDI, FVector(BarragePosition), LocalToWorld.GetUnitAxis(EAxis::X),
+						                LocalToWorld.GetUnitAxis(EAxis::Y), LocalToWorld.GetUnitAxis(EAxis::Z),
+						                BarrageColor, CapsuleRadius, CapsuleHalfHeight, CapsuleSides, SDPG_World,
+						                BarrageLineThickness);
 					}
 				}
 			}
@@ -533,14 +635,15 @@ FPrimitiveSceneProxy* UBarragePlayerAgent::CreateSceneProxy()
 			Result.bEditorPrimitiveRelevance = UseEditorCompositing(View);
 			return Result;
 		}
-		virtual uint32 GetMemoryFootprint(void) const override { return(sizeof(*this) + GetAllocatedSize()); }
-		uint32 GetAllocatedSize(void) const { return(FPrimitiveSceneProxy::GetAllocatedSize()); }
+
+		virtual uint32 GetMemoryFootprint(void) const override { return (sizeof(*this) + GetAllocatedSize()); }
+		uint32 GetAllocatedSize(void) const { return (FPrimitiveSceneProxy::GetAllocatedSize()); }
 
 	private:
-		const float		CapsuleRadius;
-		const float		CapsuleHalfHeight;
-		const uint32	bHasBarrageBody : 1;
-		const FVector3f	BarragePosition;
+		const float CapsuleRadius;
+		const float CapsuleHalfHeight;
+		const uint32 bHasBarrageBody : 1;
+		const FVector3f BarragePosition;
 	};
 
 	return new FMySceneProxy(this);

@@ -74,6 +74,9 @@ uint32 FBristleconeReceiver::Run() {
 			receiver_socket->RecvFrom(received_data.GetData(), received_data.Num(), bytes_read, *targetAddr);
 
 			const auto packet_size = sizeof(decltype(receiving_state));
+			
+			//TODO TODO TODO: this.... is an issue, cause we actually sorta screw around handing 28 bytes to the RC5 algorithm.
+			//this was basically here to turn off this processing for the time being, IIRC.
 			if(bytes_read == packet_size)
 			{
 				continue;

@@ -821,15 +821,11 @@ namespace seq
 		SEQ_ALWAYS_INLINE auto at(const Key& key) -> T&
 		{
 			auto it = find(key);
-			if (it == end())
-				throw std::out_of_range("radix_hash_map: key not found");
 			return it->second;
 		}
 		SEQ_ALWAYS_INLINE auto at(const Key& key) const -> const T&
 		{
 			auto it = find(key);
-			if (it == end())
-				throw std::out_of_range("radix_hash_map: key not found");
 			return it->second;
 		}
 

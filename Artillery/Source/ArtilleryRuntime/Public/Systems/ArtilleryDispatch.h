@@ -16,6 +16,11 @@
 #include "FJThread.h"
 #include "GameplayTagContainer.h"
 #include "TransformDispatch.h"
+#include "Engine/Engine.h"
+#if WITH_EDITOR
+#include "NetworkDebugger.h"
+#include "Debugging/ArtilleryDebugger.h"
+#endif
 
 THIRD_PARTY_INCLUDES_START
 PRAGMA_PUSH_PLATFORM_DEFAULT_PACKING
@@ -91,22 +96,64 @@ class ARTILLERYRUNTIME_API UArtilleryDispatch : public UTickableWorldSubsystem, 
 	GENERATED_BODY()
 
 	friend class FArtilleryBusyWorker;
+	friend class FArtilleryGame;
 	friend class FArtilleryTicklitesWorker<UArtilleryDispatch>;
 	friend class UCanonicalInputStreamECS;
 	friend class UArtilleryLibrary;
+	friend class UCloverDispatch;
 
 public:
-	static inline UArtilleryDispatch* SelfPtr = nullptr;
+	static UArtilleryDispatch* Get(UWorld& World)
+	{
+		return World.GetSubsystem<UArtilleryDispatch>();
+	}
+	
+	
+	static UArtilleryDispatch* Get(UObject* WorldContextObject) 
+	{
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+		if (ensure(World)) 
+		{
+			return UArtilleryDispatch::Get(*World);
+		}
+
+		return nullptr;
+	}
+	
+	
+	static TickliteWorker* GetTickliteWorker(UObject* WorldContextObject)
+	{
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+		if (ensure(World)) 
+		{
+			return UArtilleryDispatch::GetTickliteWorker(*World);
+		}	
+
+		return nullptr;
+	}
+	
+	static TickliteWorker* GetTickliteWorker(UWorld& World)
+	{
+		return UArtilleryDispatch::Get(World)->GetTickliteWorker();
+	}
+	
+	FORCEINLINE TickliteWorker* GetTickliteWorker()
+	{
+		return &ArtilleryTicklitesWorker_LockstepToWorldSim;
+	}
 	
 	UPROPERTY()
 	TObjectPtr<UTransformDispatch> TransformDispatch;
 	UPROPERTY()
 	TObjectPtr<UBarrageDispatch> BarrageDispatch;
+	UCloverDispatch* Clover;
 
-	
+
 	using MachineLet = IArtilleryControllite*;
 	using Machlet = MachineLet;
-
+#if WITH_EDITOR
+	TSharedPtr<ArtilleryDebugger> ArtilleryDebugger;
+#endif
 	UArtilleryDispatch()
 	{
 		GameplayTagContainerToDataMapping = MakeShareable(new AtomicTagArray());
@@ -118,12 +165,16 @@ public:
 		KeyToControlliteMapping = MakeShareable(new TMap<FSkeletonKey, Machlet>());
 		VectorSetToDataMapping = MakeShareable(new TMap<FSkeletonKey, Attr3MapPtr>());
 		GunByKey = MakeShareable(new TMap<FSkeletonKey, TSharedPtr<FArtilleryGun>>());
+#if WITH_EDITOR
+		ArtilleryDebugger = MakeShared<class ArtilleryDebugger>();
+#endif
 	};
 	
 	// dependencies expressed: ALL(transform pillar, cabling, bristlecone, input pillar, barrage) -> this.
 	constexpr static int OrdinateSeqKey = ORDIN::ArtilleryOnline;
-	virtual bool RegistrationImplementation() override; 
-	
+	virtual bool RegistrationImplementation() override;
+	void SetupNewPlayer(AActor* Player);
+
 	OnArtilleryActivated BindToArtilleryActivated;
 	friend class F_INeedA;
 	TSharedPtr<F_INeedA> RequestRouter;
@@ -157,7 +208,7 @@ public:
 	
 	void SetSkeletalMeshDispatch(ITickHeavy* ReferenceToSubsystem)
 	{
-		ArtilleryAsyncWorldSim.SkeletalMeshSystemPointer = ReferenceToSubsystem;
+		ArtilleryTicklitesWorker_LockstepToWorldSim.SkeletalMeshSystemPointer = ReferenceToSubsystem;
 	}
 
 	void SetEventLogSystem(ITickHeavy* ReferenceToSubsystem)
@@ -198,12 +249,16 @@ protected:
 	TSharedPtr<TMap<FSkeletonKey, Machlet>> KeyToControlliteMapping;
 	TSharedPtr<IdentCuckoo> IdentSetToDataMapping;
 	TSharedPtr<TMap<FSkeletonKey, Attr3MapPtr>> VectorSetToDataMapping;
-	
+
+	TMap<FSkeletonKey, TSharedPtr<ArtilleryControlStream>> PlayersControlStreamMap;
+
 	/** skeleton key to map of gameplay tags */
 	TSharedPtr<AtomicTagArray> GameplayTagContainerToDataMapping;
 	
 	TSharedPtr<TransformUpdatesForGameThread> TransformUpdateQueue;
-	
+
+	TSharedPtr<TCircularQueue<TSharedPtr<FBristleconePacketBase>>> ControlQueue;
+
 public:
 	virtual void PostInitialize() override;
 	void RunEnemySim(uint64_t CurrentTick) const;
@@ -229,6 +284,7 @@ protected:
 	TSharedPtr<TCircularQueue<std::pair<FGunKey, ArtilleryTime>>> ActionsToOrder;
 	//These two are the backbone of the Artillery gun lifecycle.
 	TSharedPtr< TMap<FSkeletonKey, TSharedPtr<FArtilleryGun>>> GunByKey;
+	TMap<FSkeletonKey, PlayerKey> SkeletonToPlayerKeyMapping;
 	TMultiMap<FString, TSharedPtr<FArtilleryGun>> PooledGuns;
 	
 	/**
@@ -266,7 +322,12 @@ protected:
 
 public:
 	typedef FArtilleryTicklitesWorker<UArtilleryDispatch> FTicklitesWorker;
-#define StructureFullTL(Instance,OuterType, InnerType,...) OuterType* Instance = new OuterType( InnerType(__VA_ARGS__))
+
+//@ todo move away from reliance on uworld here, it should use artillery stuff
+// Creates a wrapped ticklite This version calls UArtilleryDispatch::GetTickliteWorker(*GetWorld()) inline, as a temporary helper 
+#define StructureFullTL(Instance,OuterType, InnerType,...) OuterType* Instance = new OuterType(InnerType(__VA_ARGS__), UArtilleryDispatch::GetTickliteWorker(*GetWorld()))
+// Creates a wrapped ticklite This version accepts a UArtilleryDispatch* param
+#define StructureFullTL_Dispatch(ArtilleryDispatch, Instance, OuterType, InnerType,...) OuterType* Instance = new OuterType(InnerType(__VA_ARGS__), ArtilleryDispatch->GetTickliteWorker())
 	
 #define installGun(Instance,Type,...) TSharedPtr<Type> Instance = MakeShared<Type>(__VA_ARGS__)
 	struct ARTILLERYRUNTIME_API TL_ThreadedImpl 
@@ -275,19 +336,24 @@ public:
 		//Each class generated gets a unique static. Each kind of dispatcher will get a unique class.
 		//TODO: If you run more than one of the parent threads, this gets unsafe. We don't so...
 		//As is, it saves a huge amount of memory and indirection costs.
-		static inline FTicklitesWorker* ADispatch = nullptr;
+		FTicklitesWorker* ADispatch = nullptr;
 
 		TL_ThreadedImpl()
 		{
-			if(ADispatch == nullptr)
-			{
-				throw; // dawg, you tryin' allocate shit against a thread that ain' there.
-			}
+	// 		if(ADispatch == nullptr)
+	// 		{
+	// 			UE_LOG(
+	// LogTemp,
+	// Fatal,
+	// TEXT(
+	// 	"ArtilleryDispatch: Allocating to a non-existent thread..."
+	// ));
+	// 		}
 		}
 
 		// currently, artillery time is generated using: return duration_cast<duration<uint32_t, std::micro>>(system_clock::now().time_since_epoch()).count();
 		// and shadownow is updated only at the start of a tick. this is intended. time is "still" during a tick.
-		static ArtilleryTime GetShadowNow()
+		ArtilleryTime GetShadowNow()
 		{
 			return ADispatch->GetShadowNow();
 		}
@@ -311,10 +377,9 @@ public:
 	{
 		switch (GET_SK_TYPE(Test.Obj))
 		{
-		case SKELLY::SFIX_ART_1GUN : return this->IsGunLive(Test) ? ALIVE : DEAD;
-		case SKELLY::SFIX_ART_GUNS : return this->IsGunLive(Test) ? ALIVE : DEAD; // this is sort of a hack, sort of not.
-		case SKELLY::SFIX_ART_ACTS : return this->IsActorTransformAlive(Test) ? UNKNOWN : DEAD;
-		case SKELLY::SFIX_STELLAR  : return UNKNOWN;
+		case SKELLY::SFIX_GunOrAbilityInstance : return this->IsGunLive(Test) ? ALIVE : DEAD;
+		case SKELLY::SFIX_GunOrAbilityPrototypeKey : return this->IsGunLive(Test) ? ALIVE : DEAD; // this is sort of a hack, sort of not.
+		case SKELLY::SFIX_ActorOrActorlike : return this->IsActorTransformAlive(Test) ? UNKNOWN : DEAD;
 		default: return UNKNOWN;
 		}
 	}
@@ -365,6 +430,8 @@ public:
 	* Alignment: 8
 	*/
 	void AddTagToEntity(const FSkeletonKey Owner, const FGameplayTag& TagToAdd) const;
+	void AddTagToEntity(FSkeletonKey Owner, const FNativeGameplayTag& TagToAdd) const;
+	void RemoveTagFromEntity(FSkeletonKey Owner, const FNativeGameplayTag& TagToRemove) const;
 	void RemoveTagFromEntity(const FSkeletonKey Owner, const FGameplayTag& TagToRemove) const;
 	bool DoesEntityHaveTag(const FSkeletonKey Owner, const FGameplayTag& TagToCheck) const;
 	
@@ -415,7 +482,8 @@ public:
 	bool missedPrior = false;
 	bool burstDropDetected = false;
 
-private:
+	bool ShouldProcessInputs() const { return bProcessInputs; }
+
 	static inline long long monotonkey = 0;
 	//If you're trying to figure out how artillery works, read the busy worker knowing it's a single thread coming off of Dispatch.
 	//this handles input from bristlecone, patching it into streams from the CanonicalInputStreamECS (ACIS), using the ACIS to perform mappings,
@@ -438,4 +506,5 @@ private:
 	FSharedEventRef StartTicklitesSim;
 	FSharedEventRef StartTicklitesApply;
 	FSharedEventRef StartRunAhead;
+	bool bProcessInputs=false;
 };

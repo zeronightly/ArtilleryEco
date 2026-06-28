@@ -57,7 +57,6 @@ public:
     size_t ntables() const {return packed_maps_.size();}
     template<typename IT, typename Alloc, typename OIT, typename OAlloc>
     SetSketchIndex(size_t m, const std::vector<IT, Alloc> &nperhashes, const std::vector<OIT, OAlloc> &nperrows): m_(m) {
-        if(nperhashes.size() != nperrows.size()) throw std::invalid_argument("SetSketchIndex requires nperrows and nperhashes have the same size");
         for(size_t i = 0, e = nperhashes.size(); i < e; ++i) {
             const IT v = nperhashes[i];
             regs_per_reg_.push_back(v);
@@ -156,7 +155,6 @@ public:
     template<typename Sketch>
     std::tuple<std::vector<IdT>, std::vector<uint32_t>, std::vector<uint32_t>>
     update_query(const Sketch &item, size_t maxcand, size_t starting_idx = size_t(-1)) {
-        if(item.size() < m_) throw std::invalid_argument(std::string("Item has wrong size: ") + std::to_string(item.size()) + ", expected" + std::to_string(m_));
         if(starting_idx == size_t(-1) || starting_idx > regs_per_reg_.size()) starting_idx = regs_per_reg_.size();
         const size_t my_id = std::atomic_fetch_add(reinterpret_cast<std::atomic<size_t> *>(&total_ids_), size_t(1));
         const size_t n_subtable_lists = regs_per_reg_.size();
@@ -250,7 +248,6 @@ public:
     }
     template<typename Sketch>
     size_t update_mt(const Sketch &item) {
-        if(item.size() < m_) throw std::invalid_argument(std::string("Item has wrong size: ") + std::to_string(item.size()) + ", expected" + std::to_string(m_));
         const size_t my_id = std::atomic_fetch_add(reinterpret_cast<std::atomic<size_t> *>(&total_ids_), size_t(1));
         if(is_bottomk_only_) {
             insert_bottomk(item, my_id);
@@ -277,7 +274,6 @@ public:
     static constexpr size_t DEFAULT_ID = size_t(0xFFFFFFFFFFFFFFFF);
     template<typename Sketch>
     size_t update(const Sketch &item, size_t my_id = DEFAULT_ID) {
-        if(item.size() < m_) throw std::invalid_argument(std::string("Item has wrong size: ") + std::to_string(item.size()) + ", expected" + std::to_string(m_));
         if(my_id == DEFAULT_ID)
             my_id = std::atomic_fetch_add(reinterpret_cast<std::atomic<size_t> *>(&total_ids_), size_t(1));
         if(is_bottomk_only_) {

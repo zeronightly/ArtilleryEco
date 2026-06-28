@@ -38,7 +38,6 @@ class FArtilleryBusyWorker : public FRunnable {
 	int SeqNumber = 0;
 	//Going forward, it is potentially worthwhile for us switch to this...
 	ITickHeavy* ParticleSystemPointer = nullptr;
-	ITickHeavy* SkeletalMeshSystemPointer = nullptr;
 	ITickHeavy* ProjectileSystemPointer = nullptr;
 	ITickHeavy* EventLogSystemPointer = nullptr;
 	//Thanks to OrdIn, we can guarantee what is up when, and by expanding OrdIn, we can control what is
@@ -67,12 +66,15 @@ class FArtilleryBusyWorker : public FRunnable {
 	TheCone::SendQueue InputSwapSlot;
 	UCanonicalInputStreamECS* ContingentInputECSLinkage = nullptr;
 	UBarrageDispatch* ContingentPhysicsLinkage = nullptr;
-	
+	UTransformDispatch* UTransformLink = nullptr;
 	// This is atomic so the unreal gamethread can set it
 	std::atomic<bool> bPaused = false;
 private:
 	void Cleanup();
-	bool running = false;
+	// monotonic (race-fix 2026-06-25): true at construction, only ever set false by Cleanup()/Stop()/Exit().
+	// Init() must NOT re-raise it -- a late-scheduled thread re-setting running=true after teardown set it false
+	// is what orphaned the worker and hung the jthread join on exit.
+	bool running = true;
 	using FTMap = TMap<FSkeletonKey, FConservedTags>;
 	//this needs to remain private and only be modified or used on this thread.
 	//if you want to add the ability to expose this off-thread, first, see if the ATA already present in ArtilleryDispatch is good enough.

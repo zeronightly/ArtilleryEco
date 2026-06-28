@@ -5,6 +5,8 @@
 #include "ConservedVector.h"
 #include "EAttributes.generated.h"
 
+
+//might wanna use https://github.com/Neargye/magic_enum to keep a count
 UENUM(BlueprintType, Blueprintable)
 enum class E_AttribKey : uint8
 {
@@ -24,6 +26,8 @@ enum class E_AttribKey : uint8
 	JumpHeight,
 	ProposedDamage,
 	StunDuration,
+	PingedDuration,
+	PerHitPingedDuration,
 	IsLockedOn,
 	IsActive,
 
@@ -42,7 +46,8 @@ enum class E_AttribKey : uint8
 	LastFiredTimestamp,
 	TriggerPulled,
 	
-	Height
+	Height,
+	None
 };
 
 UENUM(BlueprintType, Blueprintable)

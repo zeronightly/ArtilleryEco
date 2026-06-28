@@ -6,6 +6,7 @@
 #include "EAttributes.h"
 #include "GameplayTagContainer.h"
 #include "SkeletonTypes.h"
+#include "StateTreeExecutionContext.h"
 #include "ThistleTypes.generated.h"
 
 namespace ThistleTypes
@@ -42,11 +43,13 @@ USTRUCT(BlueprintType, meta = (DisplayName = "Skeleton Key"))
 struct THISTLERUNTIME_API F_ArtilleryKeyInstanceData
 {
 	GENERATED_BODY()
-
+	
 	/** Key to use. Unlike basic skeleton keys, this exposes a UProp and supports reflection.*/
 	UPROPERTY(VisibleAnywhere, Category = Input)
 	FSkeletonKey KeyOf;
+	
 
+	
 	F_ArtilleryKeyInstanceData& operator=(const FSkeletonKey rhs)
 	{
 		KeyOf = rhs;
@@ -170,17 +173,17 @@ struct THISTLERUNTIME_API F_TPOIInstanceData: public  F_ArtilleryKeyInstanceData
 
 	UPROPERTY(EditAnywhere, Category = Input, meta = (Optional))
 	FVector Vec3 = FVector(NAN, NAN, NAN);
-
-	FVector ShuckPoi(bool& ShuckedSuccessfully) const
+	
+	FVector ShuckPoi(FStateTreeExecutionContext& Context, bool& ShuckedSuccessfully) const
 	{
 		switch (Mode) {
 		case E_PointOfInterestMode::VectorOnly:
 			ShuckedSuccessfully = !(Vec3.ContainsNaN());
 			return Vec3;
 		case E_PointOfInterestMode::KeyOnly:
-			return UArtilleryLibrary::K2_GetBarrageLocIfAny(PointOfInterestKey, ShuckedSuccessfully);
+			return UArtilleryLibrary::K2_GetBarrageLocIfAny(Context.GetWorld(), PointOfInterestKey, ShuckedSuccessfully);
 		case E_PointOfInterestMode::KeyRelativeVec:
-			FVector RequiresNANCheck = UArtilleryLibrary::K2_GetBarrageLocIfAny(PointOfInterestKey, ShuckedSuccessfully);
+			FVector RequiresNANCheck = UArtilleryLibrary::K2_GetBarrageLocIfAny(Context.GetWorld(), PointOfInterestKey, ShuckedSuccessfully);
 			if (ShuckedSuccessfully)
 			{
 				if (!Vec3.ContainsNaN())

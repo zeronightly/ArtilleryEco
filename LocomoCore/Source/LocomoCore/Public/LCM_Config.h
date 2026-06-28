@@ -1,5 +1,10 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "KeyedConcept.h"
+#include "ORDIN.h"
+#include "Engine/Engine.h"
+#include "Subsystems/WorldSubsystem.h"
+
 THIRD_PARTY_INCLUDES_START
 #include "immintrin.h"
 
@@ -36,3 +41,46 @@ using __uint128_t=Fortran::common::uint128_t;
 
 #define SKETCHALLOC AlignedAllocator<ValueType, AllocatorAlignment>
 THIRD_PARTY_INCLUDES_END
+
+#include "LCM_Config.generated.h"
+
+UCLASS()
+class UWorldAwareCommons : public UTickableWorldSubsystem, public ISkeletonLord, public ICanReady
+{
+	GENERATED_BODY()
+public:
+	//these are the same for the default, but as you begin to do more...
+	static constexpr double Hz = 1/128;
+	static constexpr double Dt = 1/128;
+	
+	//anything less than step cubed is substrate and artillery just expects it to Be There. Useful for little bobbins like this.
+	
+	constexpr static int32 OrdinateSeqKey = ORDIN::E_D_C::LocomoCommons;
+	static UWorldAwareCommons* Get(UWorld& World)
+	{
+		return World.GetSubsystem<UWorldAwareCommons>();
+	}
+	
+	static UWorldAwareCommons* Get(UObject* WorldContextObject) 
+	{
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+		if (ensure(World)) 
+		{
+			return UWorldAwareCommons::Get(*World);
+		}
+
+		return nullptr;
+	}
+	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(UArtillerySkeletalMeshDispatch, STATGROUP_Tickables); }
+
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override
+	{
+		Super::Initialize(Collection);
+		SET_INITIALIZATION_ORDER_BY_ORDINATEKEY_AND_WORLD
+	}
+
+	virtual bool RegistrationImplementation() override
+	{
+		return true;
+	}
+};

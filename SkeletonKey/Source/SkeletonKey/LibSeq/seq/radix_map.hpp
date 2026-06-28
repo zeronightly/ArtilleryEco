@@ -45,6 +45,7 @@ namespace seq
 	class radix_set
 	{
 		using radix_key_type = typename radix_detail::ExtractKeyResultType<ExtractKey, Key>::type;
+		friend class SeqU64PrefixAccel;
 		struct Extract
 		{
 			SEQ_ALWAYS_INLINE const radix_key_type& operator()(const radix_key_type& p) const noexcept { return p; }

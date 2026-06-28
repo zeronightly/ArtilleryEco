@@ -6,8 +6,8 @@
 
 bool UNiagaraParticleDispatch::RegistrationImplementation()
 {
-	UArtilleryDispatch::SelfPtr->SetParticleDispatch(this);
-	SelfPtr = this;
+	MyDispatch = UArtilleryDispatch::Get(GetWorld());
+	MyDispatch->SetParticleDispatch(this);
 	UE_LOG(LogTemp, Warning, TEXT("NiagaraParticleDispatch:Subsystem: Online"));
 	return true;
 }
@@ -76,8 +76,7 @@ FParticleID UNiagaraParticleDispatch::SpawnFixedNiagaraSystem(FString NiagaraSys
 	FParticleID NewParticleID = ++ParticleIDCounter;
 
 	UNiagaraSystem* NiagaraSystem = GetOrLoadNiagaraSystem(NiagaraSystemLocation);
-	try
-	{
+
 		UNiagaraComponent* NewNiagaraComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
 					GetWorld(),
 					NiagaraSystem,
@@ -92,11 +91,6 @@ FParticleID UNiagaraParticleDispatch::SpawnFixedNiagaraSystem(FString NiagaraSys
 		ParticleIDToComponentMapping->Add(NewParticleID, NewNiagaraComponent);
 		ComponentToParticleIDMapping->Add(NewNiagaraComponent, NewParticleID);
 		NewNiagaraComponent->OnSystemFinished.AddUniqueDynamic(this, &UNiagaraParticleDispatch::DeregisterNiagaraParticleComponent);
-	}
-	catch (...)
-	{
-		UE_LOG(LogTemp, Error, TEXT("UNiagaraParticleDispatch::SpawnFixedNiagaraSystem: Error! Asset not loaded or dispatch unavailable!"));
-	}
 	return NewParticleID;
 }
 	
@@ -192,7 +186,7 @@ void UNiagaraParticleDispatch::DeregisterNiagaraParticleComponent(UNiagaraCompon
 		{
 			BoneKeyToParticleIDMapping->Remove(*ParticleBoneKey);
 			KeyToParticleParamMapping->Remove(*ParticleBoneKey);
-			UArtilleryDispatch::SelfPtr->DeregisterGameplayTags(FSkeletonKey(*ParticleBoneKey));
+			UArtilleryDispatch::Get(GetWorld())->DeregisterGameplayTags(FSkeletonKey(*ParticleBoneKey));
 		}
 	} 
 }

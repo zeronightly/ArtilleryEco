@@ -1,5 +1,6 @@
 ﻿#pragma once
-#include "Structures/flat_hash_map.hpp"
+#include <vector>
+
 #include "Structures/PascalCircularBuffer.h"
 #include "SkeletonTypes.h"
 //This allocator relies on both an arena AND a pool. Each arena is bound to the TICK that created it. Each arena
@@ -232,6 +233,4 @@ template class IntraTickThreadblindAlloc<std::vector<FPascally_31, IntraTickThre
 template class DefaultAwareIntraTickAlloc<std::vector<FPascally_31, IntraTickThreadblindAlloc<FPascally_31>>>;
 template class DefaultAwareIntraTickAlloc<std::pair<uint32_t, uint32_t>>;
 template class IntraTickThreadblindAlloc<std::vector<uint32_t, DefaultAwareIntraTickAlloc<uint32_t>>>;
-template class IntraTickThreadblindAlloc<struct ska::detailv3::sherwood_v3_entry<struct std::pair<unsigned int,unsigned int> > >;
-template class DefaultAwareIntraTickAlloc<struct ska::detailv3::sherwood_v3_entry<struct std::pair<unsigned int,unsigned int> > >;
 PRAGMA_POP_PLATFORM_DEFAULT_PACKING

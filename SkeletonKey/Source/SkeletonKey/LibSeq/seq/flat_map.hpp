@@ -1922,15 +1922,12 @@ namespace seq
 		SEQ_ALWAYS_INLINE auto at(const Key& key) -> T&
 		{
 			size_t pos = find_pos(key);
-			if (pos == size())
-				throw std::out_of_range("flat_map::at : invalid key");
 			return d_tree.pos(pos).second;
 		}
 		SEQ_ALWAYS_INLINE auto at(const Key& key) const -> const T&
 		{
 			size_t pos = find_pos(key);
-			if (pos == size())
-				throw std::out_of_range("flat_map::at : invalid key");
+
 			return d_tree.pos(pos).second;
 		}
 

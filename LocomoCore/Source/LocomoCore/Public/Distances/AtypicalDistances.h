@@ -23,6 +23,14 @@ public:
 		return f ^ mask;
 	}
 
+	//taxicab geometry angle of a vector to origin, do you see where this is going?
+	auto DiamondAngle(float y, float x)
+	{
+		if (y >= 0)
+			return (x >= 0 ? y/(x+y) : 1-x/(-x+y)); 
+		else
+			return (x < 0 ? 2-y/(-x-y) : 3+x/(x-y)); 
+	}
 	// ================================================================================================
 	// flip a float back (invert FloatFlip)
 	//  signed was flipped from above, so:

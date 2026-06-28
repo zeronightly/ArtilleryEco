@@ -30,7 +30,7 @@ void UMegafunkUtilsExampleSkeletalMeshComp::InitializeComponent() {
 		// bEnableAnimation = true;
 	}
 #endif
-	if (!ShouldTickWithExampleSubsystem()) {
+	if (!ShouldTickWithSubsystem()) {
 		// bEnableAnimation = true;
 	}
 	
@@ -39,9 +39,8 @@ void UMegafunkUtilsExampleSkeletalMeshComp::InitializeComponent() {
 
 void UMegafunkUtilsExampleSkeletalMeshComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) {
 	// don't tick in-game! We allow this for editor worlds though
-	if (ShouldTickWithExampleSubsystem()) {
+	if (ShouldTickWithSubsystem()) {
 		if (GetWorld()->IsGameWorld()) {
-			ensure(false);
 			return;
 		}
 	}
@@ -55,7 +54,7 @@ void UMegafunkUtilsExampleSkeletalMeshComp::BeginPlay() {
 	// This should never tick in game worlds. we want to manually tick this!
 	UWorld* World = GetWorld();
 
-	if (ShouldTickWithExampleSubsystem()) {
+	if (ShouldTickWithSubsystem()) {
 		
 		// Stop ticking normally as we are going to want to tick with a subsystem
 		if (World->IsGameWorld()) {
@@ -94,8 +93,8 @@ FBoxSphereBounds UMegafunkUtilsExampleSkeletalMeshComp::CalcBounds(const FTransf
 	return Super::CalcBounds(LocalToWorld);
 }
 
-bool UMegafunkUtilsExampleSkeletalMeshComp::ShouldTickWithExampleSubsystem() const {
-	return bRegisterWithExampleWorldSubsystem && GbMegafunkUtilsExampleSkeletalMeshManagerEnabled;
+bool UMegafunkUtilsExampleSkeletalMeshComp::ShouldTickWithSubsystem() const {
+	return bRegisterWithWorldSubsystem && (GbMegafunkUtilsExampleSkeletalMeshManagerEnabled || GbMegafunkUtilsAnySubsystemOnlineEnabled);
 }
 
 

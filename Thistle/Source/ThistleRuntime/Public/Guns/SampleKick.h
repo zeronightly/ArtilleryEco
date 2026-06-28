@@ -10,6 +10,8 @@
 #include "FakeRandom.h"
 #include "FArtilleryGun.h"
 #include "FTSphereCast.h"
+#include "TransformDispatch.h"
+#include "SkeletonTypes.h"
 #include "ThistleDispatch.h"
 #include "UArtilleryAbilityMinimum.h"
 
@@ -25,7 +27,7 @@ struct FQuickKick : public FArtilleryGun
 public:
 	int Radius;
 
-	FQuickKick(const FGunKey& KeyFromDispatch, int MaxAmmoIn, int FirerateIn, int ReloadTimeIn, int AoE)
+	FQuickKick(const FGunKey& KeyFromDispatch, int MaxAmmoIn, int FirerateIn, int ReloadTimeIn, int AoE, UArtilleryDispatch* Dispatch)
 	{
 		MyGunKey = KeyFromDispatch;
 		MaxAmmo = MaxAmmoIn;
@@ -111,7 +113,7 @@ public:
 		FBLet GameSimPhysicsObject = this->MyDispatch->GetFBLetByObjectKey(
 			MyProbableOwner, this->MyDispatch->GetShadowNow());
 		FVector ForwardInitial;
-		UArtilleryLibrary::SimpleEstimator(ForwardInitial, 4);
+		UArtilleryLibrary::SimpleEstimator(MyDispatch->GetWorld()->GetSubsystem<UCanonicalInputStreamECS>(), ForwardInitial, 4);
 		if (FBarragePrimitive::IsNotNull(GameSimPhysicsObject))
 		{
 			FVector BaseLoc(FBarragePrimitive::GetPosition(GameSimPhysicsObject));
@@ -149,7 +151,7 @@ public:
 			PostFireGun(Fired, 0, ActorInfo, ActivationInfo, false, TriggerEventData, Handle);
 		}
 		//apply small-small-small self force with lunge
-		FBarragePrimitive::ApplyForce(VelocityVec(ForwardInitial.X * (InitialKick/2), ForwardInitial.Y * (InitialKick/2), 0), GameSimPhysicsObject, PhysicsInputType::LungeForce);
+		FBarragePrimitive::ApplyForce(VelocityVec(ForwardInitial.X * (InitialKick), ForwardInitial.Y * (InitialKick), 0), GameSimPhysicsObject, PhysicsInputType::LungeForce);
 		FBarragePrimitive::ApplyForce(VelocityVec(ForwardInitial.X * (InitialKick/2), ForwardInitial.Y * (InitialKick/2), 0), GameSimPhysicsObject, PhysicsInputType::OtherForce);
 		
 	}
@@ -189,7 +191,7 @@ private:
 	float DamageToApply = 200;
 	static const inline FGunKey Default = FGunKey("QuickKick");
 
-	int InitialKick = 800;
+	int InitialKick = 840;
 	static const inline FName ParticleName =
 		"/Script/Niagara.NiagaraSystem'/Game/Projectiles/Particles/NS_MissileTrail.NS_MissileTrail'";
 };

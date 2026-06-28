@@ -81,8 +81,15 @@ uint32 FJThread::Run()
 							  sizeof(PowerThrottling));
 	
 #endif // _WIN32_WINNT >= 0x0602
-		auto hThread = UnderlyingThread->native_handle();
-		auto prio = SetThreadPriority(hThread, 0x00000080);//this does something.... odd. enjoy.
+		// BUG-FIX(midnight-agent 2026-06-25): UnderlyingThread (the std::thread member) can be null
+		// here -- Run() begins executing before/while the ctor assigns it, and during teardown ->
+		// EXCEPTION_ACCESS_VIOLATION reading 0x0. Guard the (non-essential) priority set.
+		// TODO(goback): real fix is the FJThread startup/teardown ordering race.
+		if (UnderlyingThread != nullptr)
+		{
+			auto hThread = UnderlyingThread->native_handle();
+			auto prio = SetThreadPriority(hThread, 0x00000080);//this does something.... odd. enjoy.
+		}
 		ExitCode = UnderylingRunnable->Run();
 
 		// Allow any allocated resources to be cleaned up

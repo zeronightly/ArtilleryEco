@@ -54,7 +54,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Movement)
 	float Acceleration = 12;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Movement)
-	float AirAcceleration = 5.0;
+	float AirAcceleration = 6.0;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Movement)
 	float DeadzoneDecel = 13;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Movement)
@@ -114,7 +114,27 @@ public:
 	double MovingTowardsBaseMarkerMultiplier = 0.8f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Aim)
 	double MovingAwayFromMarkersFrictionMultiplier = 0.7f;
-	
+	//Near-miss lock-on adoption: when the aim ray hits a non-enemy, the nearest
+	//enemy whose body CENTER is within this many UE centimeters of the hit point
+	//is adopted as the target. Size it generously — it has to reach from the
+	//surface you actually hit to the middle of the enemy you nearly hit.
+	//The Jolt-side search ball shares this value (converted to meters in the call).
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Aim)
+	float NearMissAdoptionRadius = 175.f;
+	//Friction target memory: how many ticks the friction target survives after the
+	//aim ray leaves it. The ray jittering off a silhouette edge or crossing the
+	//skyline for a moment should not strobe friction off — the target stays warm
+	//and re-pins for free if the ray comes back. This runs on the fixed 128hz
+	//artillery tick, so 32 ≈ 250ms. Set 0 for instant clear.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Aim)
+	int32 FrictionTargetGraceTicks = 32;
+	//Tracking magnetism: while the player's input is converging on the crit marker,
+	//the look rotation is additionally walked toward it by at most this many degrees
+	//per 128hz tick (0.075 ≈ 9.6°/s ceiling). It only ever fires on the toward-crit
+	//branch, so it can never fight a disengage. 0 disables.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Aim)
+	double MagnetismMaxDegreesPerTick = 0.079;
+
 	static constexpr double NewInputMixrateForDash = 1.6;
 	static constexpr double AppliedForceMixrateForDash = 1;
 	
@@ -200,12 +220,19 @@ protected:
 private:
 	static bool IsAimMovingTowardPoint(const FVector& StartingAimVector, const FVector& DesiredAimVector, const FVector& ToTargetVector)
 	{
-		return DesiredAimVector.Dot(ToTargetVector) < StartingAimVector.Dot(ToTargetVector);
+		//all three vectors are unit length, so the dot against the target direction is
+		//alignment: rotating toward the point means alignment GROWS from start to desired.
+		return DesiredAimVector.Dot(ToTargetVector) > StartingAimVector.Dot(ToTargetVector);
 	}
 	
 	// Currently targeted object
 	FBLet TargetFiblet;
 	TWeakObjectPtr<AActor> TargetPtr;
+	//the barrage key of the body TargetPtr was acquired from — "is the ray still
+	//on the friction target" is a key compare, not a fiblet compare, because
+	//TargetFiblet tracks whatever the ray hit LAST (walls included).
+	FBarrageKey FrictionTargetBarrageKey = 0;
+	int32 TicksSinceFrictionTargetSeen = 0;
 	FastExcludeBroadphaseLayerFilter BroadPhaseFilter;
 	FastExcludeObjectLayerFilter ObjectLayerFilter;
 };

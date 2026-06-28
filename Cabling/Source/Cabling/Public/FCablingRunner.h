@@ -4,7 +4,11 @@
 
 #include "CoreMinimal.h"
 
+#include <atomic>
+#include "CablingCommonTypes.h"
 #include "FStatefulPatternMatcher.h"
+#include "HAL/Event.h"
+#include "HAL/Runnable.h"
 THIRD_PARTY_INCLUDES_START
 #include "Microsoft/AllowMicrosoftPlatformTypes.h"
 // ReSharper disable once CppUnusedIncludeDirective - Required for above include
@@ -23,6 +27,7 @@ THIRD_PARTY_INCLUDES_END
 //provided as a jumping off point for working in this space.
 class FCabling : public FRunnable {
 public:
+	static constexpr uint64_t BlankKeyboard = ((((1000ULL << 11 | 1000ULL) << 11 | 1000ULL) << 11 | 1000ULL) << 20);
 	using FlickBuffer = TSimpleInputRing<90>;
 	
 	FCabling();
@@ -31,10 +36,15 @@ public:
 	virtual bool Init() override;
 	bool SendNew(bool sent,uint64_t priorReading, uint64_t currentRead);
 	bool SendIfWindowEdge(bool sent, int seqNumber, uint64_t currentRead, uint32_t sendHertzFactor);
-	static uint64_t FromKeyboardAndMouseState(uint32_t keyCount, GameInputKeyState (&states)[16], const GameInputMouseButtons& mouseButtons, float MouseX, float MouseY);
+	uint64_t FromKeyboardAndMouseState(uint32_t keyCount, GameInputKeyState (&states)[16], const GameInputMouseButtons& mouseButtons, float MouseX, float MouseY);
+
+	// Stateless mouse-look shaping: one poll's raw GameInput count delta -> normalized stick
+	// deflection in [-1,1], linearly scaled by sensitivity. Holds no per-tick state. Angular
+	// conversion, pitch clamping, and aim assist are intentionally downstream, not here.
+	static float ShapeMouseAxisToDeflection(float Delta, double sensitivity);
+	uint64_t CheckGamepadState(IGameInputReading* reading);
 
 	uint64_t FromGamePadState(GameInputGamepadState state);
-	uint64_t GamepadState(IGameInputReading* reading);
 	virtual uint32 Run() override;
 	virtual void Exit() override;
 	virtual void Stop() override;
@@ -46,6 +56,9 @@ public:
 	TSharedPtr<TCircularQueue<uint64_t>> CabledThreadControlQueue;
 	FSharedEventRef WakeTransmitThread;
 	
+	bool   InvertMouseLookY     { false };
+	bool MousePrimed = false;
+
 private:
 	void Cleanup();
 };

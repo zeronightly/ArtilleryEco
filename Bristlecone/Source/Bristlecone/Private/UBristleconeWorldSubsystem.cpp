@@ -20,6 +20,7 @@ bool UBristleconeWorldSubsystem::RegistrationImplementation()
 	FString address = ConfigVals->default_address_c.IsEmpty() ? "34.207.0.66" : ConfigVals->default_address_c;
 	// Dependent on Longboy Backhaul. Not sure if we wanted each player or each game instance to have their own session/client, but for now, we'll just have one client per world.
 	auto& LongboyModule = FModuleManager::GetModuleChecked<FLongboyModule>("Longboy");
+	auto Cabling = this->GetWorld()->GetSubsystem<UCablingWorldSubsystem>();
 	FIPv4Address IPv4Address;
 	if (!FIPv4Address::Parse(ConfigVals->BackhaulAddress, IPv4Address))
 	{
@@ -39,14 +40,13 @@ bool UBristleconeWorldSubsystem::RegistrationImplementation()
 	
 	if(Longboy == nullptr || !Longboy->IsValidSession())
 	{
-		UE_LOG(LogTemp, Error, TEXT("UBristleconeWorldSubsystem: Failed to establish Longboy session."));
+		UE_LOG(LogTemp, Warning, TEXT("UBristleconeWorldSubsystem: Failed to establish Longboy session."));
 		return true; // this is a non-fatal failure.
 	}
 	sender_runner.AddTargetAddress(address);
 	UE_LOG(LogTemp, Warning,
 	       TEXT("BCN will not start unless another subsystem creates and binds queues during PostInitialize."));
 	UE_LOG(LogTemp, Warning, TEXT("Bristlecone:Subsystem: Subsystem world initialized"));
-	UCablingWorldSubsystem* Cabling = UCablingWorldSubsystem::SelfPtr;
 	if (Cabling == nullptr)
 	{
 		UE_LOG(LogTemp, Error, TEXT("UBristleconeWorldSubsystem: No Cabling subsystem to connect to!"));
@@ -133,7 +133,7 @@ void UBristleconeWorldSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 void UBristleconeWorldSubsystem::Deinitialize()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Bristlecone:Subsystem: Deinitializing Bristlecone subsystem"));
-
+	
 	if (sender_thread)
 	{
 		sender_thread->Kill();

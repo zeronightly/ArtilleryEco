@@ -8,7 +8,7 @@ public class ArtilleryEditor : ModuleRules
 	public ArtilleryEditor(ReadOnlyTargetRules Target) : base(Target)
 	{
 		//PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-		bEnableExceptions = true;
+		
 		PublicIncludePaths.AddRange(
 			new string[]
 			{

@@ -7,7 +7,7 @@ public class ThistleRuntime : ModuleRules
 	public ThistleRuntime(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-		bEnableExceptions = true;
+		
 		PublicIncludePaths.AddRange([
 			Path.Combine(PluginDirectory,"Source/ThistleRuntime"),
 			Path.Combine(PluginDirectory,"Source/ThistleRuntime/Public/StateTree"),

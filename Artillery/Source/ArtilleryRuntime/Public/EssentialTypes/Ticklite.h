@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "ArtilleryCommonTypes.h"
+#include "CompileTimeStrings.h"
 
 namespace Ticklites
 {
@@ -28,6 +29,7 @@ namespace Ticklites
 
 		virtual void ApplyTickable() override
 		{
+			TRACE_CPUPROFILER_EVENT_SCOPE_STR( __FUNCSIG__) 
 			Core.TICKLITE_Apply();
 		}
 
@@ -61,9 +63,11 @@ namespace Ticklites
 		//with the ticklite either dying at the same time, or dying first. Anything besides this will cause bugs.
 		//this can be optimized to remove the copy operation with a little work. once I'm sure this is the FINAL FORM
 		//I'll do the work.
-		Ticklite(Ticklite_Impl ImplInstance)
+		template<typename TTickliteWorker>
+		Ticklite(Ticklite_Impl ImplInstance, TTickliteWorker* InTickliteWorker)
 		{
 			Core = ImplInstance;
+			Core.ADispatch = InTickliteWorker;
 		}
 	};
 }

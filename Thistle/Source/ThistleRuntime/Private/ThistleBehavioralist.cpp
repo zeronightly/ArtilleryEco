@@ -26,12 +26,13 @@ bool UThistleBehavioralist::RegistrationImplementation()
 	FArtilleryAddEnemyToControllerSubsystem Register;
 	Register.BindUObject(this, &UThistleBehavioralist::RegisterEnemy);
 	MyDispatch->RegisterEnemySubsystem(Callback, Register);
-	UBarrageDispatch* Physics = MyDispatch->GetWorld()->GetSubsystem<UBarrageDispatch>();
+	Physics = MyDispatch->GetWorld()->GetSubsystem<UBarrageDispatch>();
+	TransformDispatch = MyDispatch->GetWorld()->GetSubsystem<UTransformDispatch>();
+	TagRegistration.MyThistleBehavioralist = this;
 	if (ensure(Physics))
 	{
 		Physics->OnBarrageContactAddedDelegate.AddUObject(
 			this, &UThistleBehavioralist::OnPhysicsCollision);
-		SelfPtr = this;
 		return true;
 	}
 	else
@@ -106,7 +107,7 @@ void UThistleBehavioralist::TimedTagsMaintenance(int32 CurrentTck)
 		for (auto& Goner : AnyToExpire)
 		{
 			bool found = false;
-			FConservedTags tagc = UArtilleryLibrary::InternalTagsByKey(Goner.Target, found);
+			FConservedTags tagc = UArtilleryLibrary::InternalTagsByKey(MyDispatch, Goner.Target, found);
 			if (found && tagc != nullptr && tagc.IsValid())
 			{
 				if (Goner.AddOrRemove)
@@ -145,7 +146,19 @@ void UThistleBehavioralist::OnWorldBeginPlay(UWorld& InWorld)
 
 void UThistleBehavioralist::Deinitialize()
 {
-	EntityToArtilleryBehavior.visit_all([](auto& e)
+	auto bindcopy =  CurrentEnemies;
+	for (auto key : bindcopy)
+	{
+		DeregisterEnemy(key);
+	}
+	for (auto key : CurrentEnemies)
+	{
+		DeregisterEnemy(key);
+	}
+	
+	DeadEnemies.Empty();
+	CurrentEnemies.Empty();
+	EntityToArtilleryBehavior.visit_all([this](auto& e)
 	{
 		
 		if (e.second)
@@ -155,7 +168,6 @@ void UThistleBehavioralist::Deinitialize()
 		}
 	});
 
-	DeadEnemies.Empty();
 	EntityToArtilleryBehavior.clear();
 	// unlike the others, we can't trust this one. Actually, we prolly can't trust them either.
 	ActorToThistleAIMapping.Empty();
@@ -164,7 +176,7 @@ void UThistleBehavioralist::Deinitialize()
 	{
 		ExpirationDeadliner->Empty();
 	}
-	
+
 	Super::Deinitialize();
 }
 
@@ -182,11 +194,11 @@ TStatId UThistleBehavioralist::GetStatId() const
 	RETURN_QUICK_DECLARE_CYCLE_STAT(UThistleDispatch, STATGROUP_Tickables);
 }
 
-bool UThistleBehavioralist::AttemptInvokePathingOnKey(FSkeletonKey Target, FVector Location)
+bool UThistleBehavioralist::AttemptInvokePathingOnKey(UThistleBehavioralist* Behavioralist,FSkeletonKey Target, FVector Location)
 {
-	if (UThistleBehavioralist::SelfPtr)
+	if (Behavioralist)
 	{
-		TObjectPtr<AThistleInject>* Hold = UThistleBehavioralist::SelfPtr->ActorToThistleAIMapping.Find(Target);
+		TObjectPtr<AThistleInject>* Hold = Behavioralist->ActorToThistleAIMapping.Find(Target);
 		if (Hold)
 		{
 			//todo get rid of these fucking floats.
@@ -196,11 +208,11 @@ bool UThistleBehavioralist::AttemptInvokePathingOnKey(FSkeletonKey Target, FVect
 	return false;
 }
 
-bool UThistleBehavioralist::AttemptAimFromKey(FSkeletonKey From, FRotator TargetRotation)
+bool UThistleBehavioralist::AttemptAimFromKey(UThistleBehavioralist* Behavioralist,FSkeletonKey From, FRotator TargetRotation)
 {
-	if (UThistleBehavioralist::SelfPtr)
+	if (Behavioralist)
 	{
-		TObjectPtr<AThistleInject>* Hold = UThistleBehavioralist::SelfPtr->ActorToThistleAIMapping.Find(From);
+		TObjectPtr<AThistleInject>* Hold = Behavioralist->ActorToThistleAIMapping.Find(From);
 		if (Hold)
 		{
 			//todo get rid of these fucking floats.
@@ -210,11 +222,11 @@ bool UThistleBehavioralist::AttemptAimFromKey(FSkeletonKey From, FRotator Target
 	return false;
 }
 
-bool UThistleBehavioralist::AttemptAttackFromKey(FSkeletonKey From)
+bool UThistleBehavioralist::AttemptAttackFromKey(UThistleBehavioralist* Behavioralist, FSkeletonKey From)
 {
-	if (UThistleBehavioralist::SelfPtr)
+	if (Behavioralist)
 	{
-		if (TObjectPtr<AThistleInject>* Hold = UThistleBehavioralist::SelfPtr->
+		if (TObjectPtr<AThistleInject>* Hold = Behavioralist->
 			ActorToThistleAIMapping.Find(From))
 		{
 			//todo get rid of these fucking floats.
@@ -227,8 +239,6 @@ bool UThistleBehavioralist::AttemptAttackFromKey(FSkeletonKey From)
 
 void UThistleBehavioralist::RegisterEnemy(const ActorKey NewKey, uint64_t Stamp)
 {
-	
-	UTransformDispatch* TransformDispatch = GetWorld()->GetSubsystem<UTransformDispatch>();
 	if (TransformDispatch)
 	{
 		if (!EntityToArtilleryBehavior.contains(NewKey))
@@ -344,7 +354,7 @@ void UThistleBehavioralist::SightLinesUpdate(const TArray<AActor*>& VisibleByAct
 
 FSkeletonKey UThistleBehavioralist::GetCurrentPlayer()
 {
-	return UArtilleryLibrary::GetLocalPlayerKey_LOW_SAFETY();
+	return UArtilleryLibrary::GetLocalPlayerKey_LOW_SAFETY(MyDispatch);
 }
 
 void UThistleBehavioralist::ProcessRallyPoint()
@@ -441,12 +451,12 @@ void UThistleBehavioralist::EmptyRecent()
 	if (EmptyRecentCued)
 	{
 		RecentlyProcessed.Empty();
-		AActor* PK = UArtilleryLibrary::GetLocalPlayer_UNSAFE();
+		AActor* PK = UArtilleryLibrary::GetLocalPlayer_UNSAFE(MyDispatch);
 		if (PK)
 		{
 			FVector PlayerLoc = PK->GetActorLocation();
 			ActorKeyArray AKA;
-			if (GetEnemiesWithinRangeOfPoint(PlayerLoc, 400, AKA) <= 0)
+			if (GetEnemiesWithinRangeOfPoint(PlayerLoc, 600, AKA) <= 0)
 			{
 				if (ensure(BehavioralistTagState)) 
 				{
@@ -539,7 +549,6 @@ uint32 UThistleBehavioralist::GetEnemiesWithinRangeOfPoint(
 		return 0;
 	}
 
-	UTransformDispatch* TransformDispatch = GetWorld()->GetSubsystem<UTransformDispatch>();
 	if (TransformDispatch == nullptr)
 	{
 		return 0;
@@ -559,24 +568,14 @@ uint32 UThistleBehavioralist::GetEnemiesWithinRangeOfPoint(
 
 		if (CurrentEnemyHealth > 0.f)
 		{
-			TWeakObjectPtr<AActor> EnemyActor = TransformDispatch->GetAActorByObjectKey(EnemyKey);
-			if (EnemyActor.IsValid())
+			bool found = false;
+			auto ALocation= UArtilleryLibrary::implK2_GetLocation(MyDispatch, EnemyKey, found);
+			if (found)
 			{
-				if (FVector::Distance(Location, EnemyActor->GetActorLocation()) <= Range)
+				if (FVector::Distance(Location, ALocation) <= Range)
 				{
 					OutEnemyKeyArray[EnemyCountFound] = EnemyKey;
 					EnemyCountFound++;
-				}
-			}
-		}
-		else if (CurrentEnemyHealth <= 0.f)
-		{
-			TWeakObjectPtr<AActor> EnemyActor = TransformDispatch->GetAActorByObjectKey(EnemyKey);
-			if (EnemyActor.IsValid())
-			{
-				if (FVector::Distance(Location, EnemyActor->GetActorLocation()) <= Range)
-				{
-					DeadEnemies.Add(EnemyKey);
 				}
 			}
 		}
@@ -605,9 +604,7 @@ void UThistleBehavioralist::CullDeadEnemies()
 				});
 			}
 		}
-
-		UTransformDispatch* TransformDispatch = UTransformDispatch::SelfPtr;
-		UBarrageDispatch* Physics = UBarrageDispatch::SelfPtr;
+		
 		if (TransformDispatch == nullptr || Physics == nullptr)
 		{
 			return; //can't shake'em.
@@ -639,8 +636,9 @@ void UThistleBehavioralist::CullDeadEnemies()
 void UThistleBehavioralist::ProcessDamageEvents()
 {
 	if (!MyDispatch) return;
-
-	for (ActorKey& EnemyKey : CurrentEnemies)
+	
+	auto copy(CurrentEnemies);
+	for (ActorKey& EnemyKey : copy)
 	{
 		if (MyDispatch->DoesEntityHaveTag(EnemyKey, GameplayEvent_Damaged))
 		{

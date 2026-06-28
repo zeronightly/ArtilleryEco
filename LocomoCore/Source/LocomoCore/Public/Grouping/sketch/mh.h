@@ -77,7 +77,7 @@ public:
         DefaultRNGType gen(seedseed);
         seeds_.reserve(nseeds());
         while(seeds_.size() < nseeds()) seeds_.emplace_back(gen());
-        throw;
+        ensureMsgf(false, TEXT("This codepath is not supported in this version of Sketch in this version of Locomo"));
     }
     size_t nseeds() const {return this->nvals() * sizeof(uint64_t) / sizeof(T);}
     size_t nhashes_per_seed() const {return sizeof(uint64_t) / sizeof(T);}
@@ -85,7 +85,6 @@ public:
     size_t nhashes_per_vector() const {return sizeof(uint64_t) / sizeof(Space::Type);}
 #endif
     void addh(T val) {
-        throw ;
         // Hash stuff.
         // Then use a vectorized minimization comparison instruction
     }
@@ -294,7 +293,6 @@ struct FinalRMinHash {
     }
     FinalRMinHash &operator+=(const FinalRMinHash &o) {
         std::vector<T, Allocator> newfirst; newfirst.reserve(o.size());
-        if(this->size() != o.size()) throw std::runtime_error("Non-matching parameters for FinalRMinHash comparison");
         auto i1 = this->begin(), i2 = o.begin();
         while(newfirst.size() < first.size()) {
             if(*i2 < *i1) {
@@ -710,7 +708,8 @@ struct FinalCRMinHash: public FinalRMinHash<T> {
 #endif
     }
     double cosine_distance(const FinalCRMinHash &o) const {
-        throw;
+        
+        ensureMsgf(false, TEXT("This implementation of cosine distance is known bugged. It's left here for historical reasons, as some people use this version on purpose. If you need it, remove this line."));
         // ReSharper disable once CppUnreachableCode
         const size_t lsz = this->size(), rsz = o.size();
         size_t num = 0;
@@ -1012,7 +1011,6 @@ public:
     }
     template<typename T>
     void hash(const T &x, Signature *ret, std::false_type) const {
-        CONST_IF(!sparsecache) throw std::runtime_error("Cannot use sparsecache if not enabled");
         std::unique_ptr<FT[]> hm(new FT[this->nd_]());
         for(const auto &pair: x) hm[pair.index()] = pair.value();
 

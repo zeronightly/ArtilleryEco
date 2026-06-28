@@ -11,9 +11,10 @@
 class UMegafunkUtilsExampleSkeletalMeshComp;
 class UMegafunkUtilsExampleAnimSubsystem; // Fwd declared because FMegafunkUtilsManagerTick has a member ptr to them
 
-static bool GbMegafunkUtilsExampleSkeletalMeshManagerEnabled = true;
+
+static bool GbMegafunkUtilsExampleSkeletalMeshManagerEnabled = false;
 static bool GbMegafunkUtilsExampleSkeletalMeshManagerChaosUpdateEnabled = false;
-static bool GbMegafunkUtilsExampleMontageAndAnimNotifyMainThreadCallbackEnabled = true;
+static bool GbMegafunkUtilsExampleMontageAndAnimNotifyMainThreadCallbackEnabled = false;
 static bool GbMegafunkUtilsExampleAnimInstanceManagerEnabled = false;
 
 

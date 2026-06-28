@@ -60,7 +60,7 @@ FConservedTags AtomicTagArray::NewTagContainer(FSkeletonKey Top)
 uint32_t AtomicTagArray::KeyToHash(FSkeletonKey Top)
 {
 	uint64_t TypeInfo = GET_SK_TYPE(Top);
-	uint64_t KeyInstance = Top & SKELLY::SFIX_HASH_EXT;
+	uint64_t KeyInstance = Top & SKELLY::SFIX_MaskForCoreHash;
 	return HashCombineFast(TypeInfo, KeyInstance);
 }
 
@@ -129,6 +129,9 @@ bool AtomicTagArray::Empty()
 	return true;
 }
 
+//do we want to allow a few tags to be Tracked?
+//this is NOT free but it's actually not that much more expensive if we use the result sets + an add\kill list? gotta think about it.
+//we'd need it on remove. now, we do basically only gots sorta one of these actually under the hood. so... maybe?
 bool AtomicTagArray::AddImpl(uint32_t Key, FGameplayTag Bot)
 {
 	TSharedPtr<Entities> HOpen = FastEntities;

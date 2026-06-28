@@ -10,7 +10,7 @@ public class SunflowerRuntime : ModuleRules
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		bEnableExceptions = true;
+		
 		PublicIncludePaths.AddRange(
 			new string[] {
 				Path.Combine(PluginDirectory,"Source/SunflowerRuntime")
@@ -35,14 +35,11 @@ public class SunflowerRuntime : ModuleRules
                 "ApplicationCore",
                 "InputCore",
                 "Barrage",
-                "BarrageEditor",
                 "SlateCore", 
                 "SkeletonKey", 
                 "LocomoCore",
                 "Niagara",
-                "NiagaraEditor",
                 "NiagaraUIRenderer",
-                "NiagaraUIRendererEditor",
                 "ArtilleryRuntime",
                 "ThistleRuntime",
                 "MassEntity",

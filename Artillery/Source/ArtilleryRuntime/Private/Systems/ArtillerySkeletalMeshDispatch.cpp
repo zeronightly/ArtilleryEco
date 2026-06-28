@@ -2,22 +2,22 @@
 
 
 #include "ArtillerySkeletalMeshDispatch.h"
-
 #include "ArtilleryAnimInstance.h"
 #include "ArtilleryDispatch.h"
+#include "BoneContainer.h"
 #include "Anim/MegafunkUtilsAnimAccessors.h"
+#include "Anim/MegafunkUtilsExampleSkeletalMeshComp.h"
 #include "Misc/EngineVersionComparison.h"
 
-#include UE_INLINE_GENERATED_CPP_BY_NAME(ArtillerySkeletalMeshDispatch)
-
-bool bUseBLKQueue = true;
+bool bUseBLKQueue = false;
 FAutoConsoleVariableRef CVarUseBLKQueue(TEXT("artillery.anim.UseBLKQueue"),
                                         bUseBLKQueue,
                                         TEXT(
-	                                        "enables using experimetnal BLK queue to send bone transforms up to the regular unreal ticking threads"),
+	                                        "enables using experimental BLK queue to send bone transforms up to the regular unreal ticking threads"),
                                         ECVF_Default);
 
 
+//@todo this isn't a meaningful distinction afaik for the places we use it
 bool bPushToRender = true;
 FAutoConsoleVariableRef CVarPushToGameThread(TEXT("artillery.anim.PushToRender"),
                                              bPushToRender,
@@ -26,7 +26,7 @@ FAutoConsoleVariableRef CVarPushToGameThread(TEXT("artillery.anim.PushToRender")
                                              ECVF_Default);
 
 void UArtillerySkeletalMeshDispatch::CreateAnimInstanceStateForUpdate(const FSkeletonKey InOwnerSkeletonKey,
-                                                                      const TSubclassOf<UAnimInstance>
+                                                                      const TSubclassOf<UAnimInstance>&
                                                                       InAnimInstanceClass,
                                                                       USkeletalMesh& InSkeletalMesh,
                                                                       TSharedRef<struct FBoneContainer> InRequiredBones,
@@ -74,13 +74,28 @@ void UArtillerySkeletalMeshDispatch::CreateAnimInstanceStateForUpdate(const FSke
 			InCurveFilterSettings,
 			InRefPoseOverride);
 
+		UE_LOG(LogTemp, Display,
+		       TEXT("SkeletonKey %s of %s being set..."), *InOwnerSkeletonKey.PrettyPrint(), ToCStr( this->GetName())
+		);
+
 		if (auto ArtilleryAnimInstance = Cast<UArtilleryAnimInstance>(NewAnimInstance))
 		{
 			ArtilleryAnimInstance->MyParentObjectKey = InOwnerSkeletonKey;
-			if (UBarrageDispatch* BarrageDispatch = GetWorld()->GetSubsystem<UBarrageDispatch>())
+			if (BarrageDispatch)
 			{
 				ArtilleryAnimInstance->MyBarrageBody = BarrageDispatch->GetShapeRef(InOwnerSkeletonKey);
+				UE_LOG(LogTemp, Display,
+				       TEXT("SkeletonKey %s of %s bound to barrage body."), *InOwnerSkeletonKey.PrettyPrint(),
+				       ToCStr( this->GetName())
+				);
 			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning,
+			       TEXT("SkeletonKey %s of %s NOT SET SUCCESSFULLY"), *InOwnerSkeletonKey.PrettyPrint(),
+			       ToCStr( this->GetName())
+			);
 		}
 
 
@@ -127,6 +142,20 @@ void UArtillerySkeletalMeshDispatch::ArtilleryTick()
 		// Handle removals and additions from other threads
 		for (FSkeletonKey& ToRemove : PendingRemovalAnimStateContainers)
 		{
+			//@todo a bodge fix here to manually reset fblets as otherwise they invoke a dtor during GC which isn't safe currently
+			if (FArtilleryWIPAnimStateContainer* FoundElement = AnimStateContainers.Find(ToRemove))
+			{
+				if (auto ArtilleryAnimInstance = Cast<UArtilleryAnimInstance>(FoundElement->AnimInstance.Get()))
+				{
+					ArtilleryAnimInstance->MyBarrageBody.Reset();
+					UE_LOG(LogTemp, Display,
+					       TEXT("SkeletonKey %s of %s zapped by bodge fix."),
+					       *ArtilleryAnimInstance->MyParentObjectKey.PrettyPrint(),
+					       ToCStr( ArtilleryAnimInstance->GetName())
+					);
+				}
+			}
+
 			AnimStateContainers.Remove(ToRemove);
 		}
 		PendingRemovalAnimStateContainers.Reset(PendingRemovalAnimStateContainers.Num());
@@ -138,11 +167,11 @@ void UArtillerySkeletalMeshDispatch::ArtilleryTick()
 		}
 		PendingAnimStateContainers.Reset(PendingAnimStateContainers.Num());
 	}
-	
-	
+
+
 	// Currently we just use a simple task setup to tick these
 	// Launch some tasks that evaluate anim instances
-	
+
 	for (auto& [Owner, Anim] : AnimStateContainers)
 	{
 		static constexpr float DeltaTime = 1.0f / HERTZ_OF_BARRAGE;
@@ -177,6 +206,16 @@ void UArtillerySkeletalMeshDispatch::ArtilleryTick()
 						                                    Owner, &TransformData, Num, ThreadStateBundle,
 						                                    BLKFrameCounter);
 				                                    }
+				                                    else
+				                                    {
+					                                    AnimationEvaluationResultQueue.ProduceItem(
+						                                    FSkeletonAnimResultQueueElement{
+							                                    .OwnerKey = Owner,
+							                                    .BoneTransforms = TArray<
+								                                    FTransform, TInlineAllocator<128>>(
+								                                    Anim.EvaluationContext.ComponentSpaceTransforms)
+						                                    });
+				                                    }
 			                                    }
 		                                    });
 	}
@@ -184,17 +223,19 @@ void UArtillerySkeletalMeshDispatch::ArtilleryTick()
 	// Try to help with the tasks we just sent out (A bit silly but these can be unbalanced so a parallel for is not quite as nice)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(TryRetractAndExecute tasks)
-		for (auto& [Owner, Anim] : AnimStateContainers) {
+		for (auto& [Owner, Anim] : AnimStateContainers)
+		{
 			Anim.TaskHandle.TryRetractAndExecute();
 		}
 	}
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(Wait on tasks)
-		for (auto& [Owner, Anim] : AnimStateContainers) {
+		for (auto& [Owner, Anim] : AnimStateContainers)
+		{
 			Anim.TaskHandle.Wait();
 		}
 	}
-	
+
 	//We have waited until all tasks are done. We can now declare that tick complete.
 	BLKFrameCounter++;
 }
@@ -202,7 +243,21 @@ void UArtillerySkeletalMeshDispatch::ArtilleryTick()
 bool UArtillerySkeletalMeshDispatch::RegistrationImplementation()
 {
 	check(ArtilleryDispatch);
+	IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(
+		TEXT("MegafunkUtils.ExampleSkeletalMeshManager.Enabled"));
+
+	if (CVar)
+	{
+		// 2. Set the value (supports int, float, or FString)
+		CVar->Set(true, ECVF_SetByCode);
+	}
 	ArtilleryDispatch->SetSkeletalMeshDispatch(this);
+
+	for (auto& Bundle : ThreadStateBundleArtilleryThread)
+	{
+		SkeletonBLKRing.GetMyConsumerModulo(Bundle);
+	}
+
 
 	return true;
 }
@@ -215,7 +270,10 @@ void UArtillerySkeletalMeshDispatch::Initialize(FSubsystemCollectionBase& Collec
 
 	TransformDispatch = Collection.InitializeDependency<UTransformDispatch>();
 
+	BarrageDispatch = Collection.InitializeDependency<UBarrageDispatch>();
+
 	Collection.InitializeDependency<UOrdinatePillar>()->REGISTERLORD(OrdinateSeqKey, this, this);
+	SET_INITIALIZATION_ORDER_BY_ORDINATEKEY_AND_WORLD
 }
 
 void UArtillerySkeletalMeshDispatch::Deinitialize()
@@ -226,10 +284,21 @@ void UArtillerySkeletalMeshDispatch::Deinitialize()
 	{
 		Anim.TaskHandle.Wait();
 		Anim.TaskHandle = UE::Tasks::TTask<void>();
+
+		//@todo a bodge fix here to manually reset fblets as otherwise they invoke a dtor during GC which isn't safe currently
+		if (auto ArtilleryAnimInstance = Cast<UArtilleryAnimInstance>(Anim.AnimInstance.Get()))
+		{
+			ArtilleryAnimInstance->MyBarrageBody.Reset();
+			UE_LOG(LogTemp, Display,
+			       TEXT("SkeletonKey %s of %s zapped during deinit"),
+			       *ArtilleryAnimInstance->MyParentObjectKey.PrettyPrint(), ToCStr( ArtilleryAnimInstance->GetName())
+			);
+		}
 	}
+
 	// We want strong pointers to be manually removed before GC runs
-	AnimStateContainers.Reset();
-	PendingAnimStateContainers.Reset();
+	AnimStateContainers.Empty();
+	PendingAnimStateContainers.Empty();
 	SkeletonBLKRing.Reset(); //this increments the generation, invalidating any existing tasks as soon as possible 
 	//but should generally not be called while the BLK ring is running. pretty sure it's safe but I've been pretty sure of a lot of stuff.
 }
@@ -273,118 +342,223 @@ void UArtillerySkeletalMeshDispatch::OnWorldEndPlay(UWorld& InWorld)
 void UArtillerySkeletalMeshDispatch::Tick(float DeltaTime)
 {
 	// Game thread tick
-
+	TRACE_CPUPROFILER_EVENT_SCOPE(Skeletal Mesh Tick)
 	Super::Tick(DeltaTime);
 	//Shipping any update twice can cause explosions.
-	SkeletonBLKRing.ResetConsumersOnly_NoGenerationIncrement();
 	SkeletonBLKRing.UpdateConsumersAtStartOfTick(ConsumerCount);
-	auto LastKnownFinishedTick =  BLKFrameCounter - 1;//this increments ONLY when a frame is finished, so we know that counter-1 is completed.
+	auto LastKnownFinishedTick = BLKFrameCounter;
+	//this increments ONLY when a frame is finished, so we know that counter's frame completed.
 	if (LastKnownFinishedTick > 0)
 	{
-		ParallelFor(ConsumerCount, [&](int32 BodyIndex)
+		TArray<UE::Tasks::TTask<void>, TInlineAllocator<32>> Tasks;
+
+		if (!bUseBLKQueue)
 		{
-	#if UE_VERSION_NEWER_THAN_OR_EQUAL(5, 7, 0)
-					FTaskTagScope Scope(ETaskTag::EParallelGameThread);
-	#else
-					FOptionalTaskTagScope Scope(ETaskTag::EParallelGameThread);
-	#endif
-			if (bUseBLKQueue)
 			{
-				// Game thread only handle into the BLKRing
-			
-				BLK::WorkerStateBundle ThreadStateBundleGameThread; // parallel for doesn't promise we'll be on threads, so we can't use thread local.
-				 volatile bool DidThisChange = SkeletonBLKRing.UpdateConsumerModulo(ThreadStateBundleGameThread);
+				FinishedWork.Reset(AnimStateContainers.Num());
 
-				BLK::RecordFetchState BoneRecord = SkeletonBLKRing.GetMyNextRecord(
-					ThreadStateBundleGameThread, LastKnownFinishedTick);
-				while (BoneRecord.second.has_value() && BoneRecord.first != -1)
-				{
-					BLK::TransientQueuedDataRange NoWarrantiesBoneView = SkeletonBLKRing.
-						GetBoneIterator(
-							BoneRecord, ThreadStateBundleGameThread);
-					auto Rec = BoneRecord.second.value_or(BLK::FBoneArrayRecord()).key;
-					auto ptr = TransformDispatch->GetAActorByObjectKey(Rec);
-					auto ActorPtr = ptr.IsValid() ? ptr.Pin() : nullptr;
-					if (ActorPtr)
-						//@Megafunk, the above is the normal idiom, but is this correct in UEWorld?
+				// Lifo is faster and the one we want here
+				AnimationEvaluationResultQueue.ConsumeAllLifo(
+					[this](const FSkeletonAnimResultQueueElement& ResultElement)
 					{
-						if (auto SkeletalMeshComponent = ActorPtr->FindComponentByClass<
-							USkeletalMeshComponent>())
+						// Having two of the same skeletal mesh update = fighting over the same containers which can crash, so instead I gather up unique ones here
+
+						// And yes, a dumb array search is faster than a TSet at lower counts... I will have to profile the worst case though because it seems like it would start to diverge at a higher count
+						int32 PreExistingIndex = FinishedWork.IndexOfByPredicate(
+							[&](const FSkeletonAnimResultQueueElement& Elem)
+							{
+								return Elem.OwnerKey == ResultElement.OwnerKey;
+							});
+
+						if (PreExistingIndex != INDEX_NONE)
 						{
-							// Disable the normal component tick (temporary, ideally it would not be set in the first place!)
-							if (SkeletalMeshComponent->IsComponentTickEnabled())
-							{
-								// Becuase we are not on the gamethread we have to get weird... this is definitely not ideal
-								auto WeakSkeletalMeshComponent = TWeakObjectPtr<USkeletalMeshComponent>(SkeletalMeshComponent);
-								AsyncTask(ENamedThreads::GameThread, [WeakSkeletalMeshComponent]() {
-									
-									if (auto GameThreadPtr = WeakSkeletalMeshComponent.Get()) {
-										GameThreadPtr->SetComponentTickEnabled(false);
-									}
-								});
-							}
-
-							auto& BoundBoneArray = SkeletalMeshComponent->
-								GetEditableComponentSpaceTransforms();
-							//records and bone sets are queued "side by side" on two queues. For the current record,
-							//we have gotten a view over the transmitted bone set. we will now copy directly from this view
-							//into the editable transform array of the specified skeleton.
-							if (bPushToRender && !BoundBoneArray.IsEmpty())
-							{
-								//in a just and righteous world, these would always be the same. Who knows! maybe they will be.
-								//I however am not going to count on it. <3
-								volatile auto HowManyBonesYouActuallyHave = BoundBoneArray.Num(); //This gets optimized out unless you add volatile
-								//And you are gonna want it for debug purposes.
-								auto HowManyBonesYouGotTransformsFor = NoWarrantiesBoneView.
-									Num;
-
-								//we assume bone order is the same because we wrote it in from the same data source. if this is an unsafe assumption,
-								//we need to make some changes to force order.
-								for (int i = 0;
-									 i < HowManyBonesYouGotTransformsFor
-									 &&
-									 i < HowManyBonesYouActuallyHave;
-									 ++i)
-								{
-									auto found = SkeletonBLKRing.IterateRange(
-										NoWarrantiesBoneView);
-									if (found)
-									{
-										//this... does the right thing, right? Like we aren't causing a spare copy, right?
-										BoundBoneArray[i] = *found;
-										//the copy actually happens here. I'll be honest, it makes me a bit nervous.
-									}
-									else
-									{
-										UE_LOG(LogTemp, Log,
-											   TEXT(
-												   "Why is the queued set of bones for %s too short?"
-											   ),
-											   *SkeletalMeshComponent->GetOwner()->
-											   GetActorNameOrLabel());
-									}
-								}
-							
-								MegafunkUtils::Anim::SkeletalMeshComponent_ForceFinalizeBoneTransform(
-									*SkeletalMeshComponent);
-								// Send render data DIRECTLY. This is a large part of why no main thread step is required
-								MegafunkUtils::Anim::SkeletalMeshComponent_PushRenderUpdate(
-									*SkeletalMeshComponent);
-							}
-							else
-							{
-								UE_LOG(LogTemp, Log,
-									   TEXT("Why is the bone array for %s empty?"),
-									   *SkeletalMeshComponent->GetOwner()->
-									   GetActorNameOrLabel());
-							}
+							return;
 						}
-					}
 
-					BoneRecord = SkeletonBLKRing.
-						GetMyNextRecord(ThreadStateBundleGameThread, LastKnownFinishedTick);
-				}
+						FinishedWork.Emplace(ResultElement);
+					});
 			}
-		}, false, true);
+
+			for (int32 i = 0; i < FinishedWork.Num(); ++i)
+			{
+				auto& NewTaskRef = Tasks.AddDefaulted_GetRef();
+
+				NewTaskRef = UE::Tasks::Launch(TEXT("Artillery Skeletal mesh update for render after dequeue"),
+				                               [&, i]
+				                               {
+#if UE_VERSION_NEWER_THAN_OR_EQUAL(5, 7, 0)
+					                               FTaskTagScope Scope(ETaskTag::EParallelGameThread);
+#else
+					                               FOptionalTaskTagScope Scope(ETaskTag::EParallelGameThread);
+#endif
+
+					                               if (AActor* ActorPtr = TransformDispatch->GetAActorByObjectKey(
+						                               FinishedWork[i].OwnerKey).Get())
+					                               {
+						                               if (auto SkeletalMeshComponent = ActorPtr->FindComponentByClass<
+							                               USkeletalMeshComponent>())
+						                               {
+							                               SkeletalMeshComponent->GetEditableComponentSpaceTransforms()
+								                               = FinishedWork[i].
+								                               BoneTransforms;
+
+							                               MegafunkUtils::Anim::SkeletalMeshComponent_ForceFinalizeBoneTransform(
+								                               *SkeletalMeshComponent);
+							                               // Send render data DIRECTLY. This is a large part of why no main thread step is required
+							                               MegafunkUtils::Anim::SkeletalMeshComponent_PushRenderUpdate(
+								                               *SkeletalMeshComponent);
+						                               }
+					                               }
+				                               });
+			}
+		}
+		else
+		{
+			// Similar to a parallel for but we just launch tasks all at once
+			int32 NumTasks = static_cast<int32>(LowLevelTasks::FScheduler::Get().GetNumWorkers());
+
+			Tasks.Reserve(NumTasks);
+
+			for (int32 i = 0; i < NumTasks; ++i)
+			{
+				auto& NewTaskRef = Tasks.AddDefaulted_GetRef();
+
+				NewTaskRef = UE::Tasks::Launch(TEXT("Artillery Skeletal mesh dequeue update for render"),
+				                               [&]
+				                               {
+#if UE_VERSION_NEWER_THAN_OR_EQUAL(5, 7, 0)
+					                               FTaskTagScope Scope(ETaskTag::EParallelGameThread);
+#else
+					                               FOptionalTaskTagScope Scope(ETaskTag::EParallelGameThread);
+#endif
+					                               // Game thread only handle into the BLKRing
+
+					                               BLK::WorkerStateBundle ThreadStateBundleGameThread;
+					                               // parallel for doesn't promise we'll be on threads, so we can't use thread local.
+					                               volatile bool DidThisChange = SkeletonBLKRing.UpdateConsumerModulo(
+						                               ThreadStateBundleGameThread);
+
+					                               BLK::RecordFetchState BoneRecord = SkeletonBLKRing.GetMyNextRecord(
+						                               ThreadStateBundleGameThread,
+						                               LastKnownFinishedTick);
+					                               while (BoneRecord.second.has_value() && BoneRecord.first != -1)
+					                               {
+						                               BLK::TransientQueuedDataRange NoWarrantiesBoneView =
+							                               SkeletonBLKRing.GetBoneIterator(
+								                               BoneRecord,
+								                               ThreadStateBundleGameThread);
+						                               auto Rec = BoneRecord.second.value_or(BLK::FBoneArrayRecord()).
+						                                                     key;
+						                               auto ptr = TransformDispatch->GetAActorByObjectKey(Rec);
+						                               auto ActorPtr = ptr.IsValid() ? ptr.Pin() : nullptr;
+						                               if (ActorPtr)
+						                               //@Megafunk, the above is the normal idiom, but is this correct in UEWorld?
+						                               {
+							                               if (auto SkeletalMeshComponent = ActorPtr->
+								                               FindComponentByClass<USkeletalMeshComponent>())
+							                               {
+								                               // Disable the normal component tick (temporary, ideally it would not be set in the first place!)
+								                               if (SkeletalMeshComponent->IsComponentTickEnabled())
+								                               {
+									                               // Becuase we are not on the gamethread we have to get weird... this is definitely not ideal
+									                               auto WeakSkeletalMeshComponent = TWeakObjectPtr<
+										                               USkeletalMeshComponent>(
+										                               SkeletalMeshComponent);
+									                               AsyncTask(ENamedThreads::GameThread,
+									                                         [WeakSkeletalMeshComponent]()
+									                                         {
+										                                         if (auto GameThreadPtr =
+											                                         WeakSkeletalMeshComponent.Get())
+										                                         {
+											                                         GameThreadPtr->
+												                                         SetComponentTickEnabled(false);
+										                                         }
+									                                         });
+								                               }
+
+								                               auto& BoundBoneArray = SkeletalMeshComponent->
+									                               GetEditableComponentSpaceTransforms();
+								                               //records and bone sets are queued "side by side" on two queues. For the current record,
+								                               //we have gotten a view over the transmitted bone set. we will now copy directly from this view
+								                               //into the editable transform array of the specified skeleton.
+								                               if (bPushToRender && !BoundBoneArray.IsEmpty())
+								                               {
+									                               //in a just and righteous world, these would always be the same. Who knows! maybe they will be.
+									                               //I however am not going to count on it. <3
+									                               volatile auto HowManyBonesYouActuallyHave =
+										                               BoundBoneArray.Num();
+									                               //This gets optimized out unless you add volatile
+									                               //And you are gonna want it for debug purposes.
+									                               auto HowManyBonesYouGotTransformsFor =
+										                               NoWarrantiesBoneView.Num;
+
+									                               //we assume bone order is the same because we wrote it in from the same data source. if this is an unsafe assumption,
+									                               //we need to make some changes to force order.
+									                               for (int i = 0; i < HowManyBonesYouGotTransformsFor
+									                                    && i <
+									                                    HowManyBonesYouActuallyHave; ++i)
+									                               {
+										                               auto found = SkeletonBLKRing.IterateRange(
+											                               NoWarrantiesBoneView);
+										                               if (found)
+										                               {
+											                               //this... does the right thing, right? Like we aren't causing a spare copy, right?
+											                               BoundBoneArray[i] = *found;
+											                               //the copy actually happens here. I'll be honest, it makes me a bit nervous.
+										                               }
+										                               else
+										                               {
+											                               UE_LOG(LogTemp,
+												                               Log,
+												                               TEXT(
+													                               "Why is the queued set of bones for %s too short?"
+												                               ),
+												                               *SkeletalMeshComponent->GetOwner()->
+												                               GetActorNameOrLabel());
+										                               }
+									                               }
+									                               if (SkeletalMeshComponent && SkeletalMeshComponent->
+										                               IsValidLowLevelFast())
+									                               {
+										                               MegafunkUtils::Anim::SkeletalMeshComponent_ForceFinalizeBoneTransform(
+											                               *SkeletalMeshComponent);
+										                               // Send render data DIRECTLY. This is a large part of why no main thread step is required
+										                               MegafunkUtils::Anim::SkeletalMeshComponent_PushRenderUpdate(
+											                               *SkeletalMeshComponent);
+									                               }
+								                               }
+								                               else
+								                               {
+									                               UE_LOG(LogTemp,
+									                                      Log,
+									                                      TEXT("Why is the bone array for %s empty?"),
+									                                      *SkeletalMeshComponent->GetOwner()->
+									                                      GetActorNameOrLabel());
+								                               }
+							                               }
+						                               }
+
+						                               BoneRecord = SkeletonBLKRing.GetMyNextRecord(
+							                               ThreadStateBundleGameThread,
+							                               LastKnownFinishedTick);
+					                               }
+				                               });
+			}
+		}
+
+		{
+			TRACE_CPUPROFILER_EVENT_SCOPE(TryRetractAndExecute tasks)
+			for (auto& Task : Tasks)
+			{
+				Task.TryRetractAndExecute();
+			}
+		}
+		{
+			TRACE_CPUPROFILER_EVENT_SCOPE(Wait on tasks)
+			for (auto& Task : Tasks)
+			{
+				Task.Wait();
+			}
+		}
 	}
 }

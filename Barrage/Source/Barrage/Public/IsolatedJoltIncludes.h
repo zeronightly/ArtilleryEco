@@ -4,7 +4,7 @@
 // ReSharper disable CppUnusedIncludeDirective
 
 #include "FBarrageKey.h"
-#include "SkeletonKey.h"
+#include "SkeletonKeyModule.h"
 #include "HAL/Platform.h"
 #include "seq/concurrent_map.hpp"
 THIRD_PARTY_INCLUDES_START

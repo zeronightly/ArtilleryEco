@@ -16,7 +16,7 @@ void UArtilleryProjectileDispatch::ArtilleryTick()
 
 	for (FSkeletonKey Goner : Ref)
 	{
-		UArtilleryLibrary::TombstonePrimitive(Goner);
+		UArtilleryLibrary::TombstonePrimitive(UArtilleryDispatch::Get(GetWorld()), Goner);
 	}
 }
 
@@ -83,8 +83,7 @@ bool UArtilleryProjectileDispatch::RegistrationImplementation()
 	check(MyDispatch);
 	UBarrageDispatch* BarrageDispatch = GetWorld()->GetSubsystem<UBarrageDispatch>();
 	BarrageDispatch->OnBarrageContactAddedDelegate.AddUObject(this, &UArtilleryProjectileDispatch::OnBarrageContactAdded);
-	UArtilleryDispatch::SelfPtr->SetProjectileDispatch(this);
-	SelfPtr = this;
+	MyDispatch->SetProjectileDispatch(this);
 	return true;
 }
 
@@ -251,7 +250,8 @@ bool UArtilleryProjectileDispatch::IsArtilleryProjectile(const FSkeletonKey Mayb
 
 void UArtilleryProjectileDispatch::DeleteProjectile(const FSkeletonKey Target)
 {
-	if (UArtilleryDispatch::SelfPtr)
+	auto Dispatch = UArtilleryDispatch::Get(GetWorld());
+	if (Dispatch)
 	{
 		TWeakObjectPtr<AInstancedMeshManager> MeshManager;
 		//->visit(Target, [&In](auto& a) { In = a.second; })
@@ -263,7 +263,7 @@ void UArtilleryProjectileDispatch::DeleteProjectile(const FSkeletonKey Target)
 			ProjectileKeyToMeshManagerMapping->erase(Target);
 			ProjectileToGunMapping->erase(Target);
 		}
-		UNiagaraParticleDispatch::SelfPtr->CleanupKey(Target);
+		GetWorld()->GetSubsystem<UNiagaraParticleDispatch>()->CleanupKey(Target);
 	}
 }
 
@@ -294,7 +294,9 @@ TWeakObjectPtr<USceneComponent> UArtilleryProjectileDispatch::GetSceneComponentF
 void UArtilleryProjectileDispatch::OnBarrageContactAdded(const BarrageContactEvent& ContactEvent)
 {
 	// We only care if one of the entities is a projectile
-	if (UBarrageDispatch::SelfPtr)
+	auto Dispatch = UArtilleryDispatch::Get(GetWorld());
+	auto Barrage = UBarrageDispatch::Get(GetWorld());
+	if (Dispatch && Barrage)
 	{
 		// If you're lost, here's a quick example of how you can make use of the various attributes we expose here.
 		// the point we hand along isn't guaranteed to be the only or best contact point, but it works well-ish.
@@ -324,7 +326,7 @@ void UArtilleryProjectileDispatch::OnBarrageContactAdded(const BarrageContactEve
 
 			//we defer this as late as we can to minimize contention during the sim step.
 			//don't make this a ref unless you want a very bad time.
-			FBLet quickfib = UBarrageDispatch::SelfPtr->GetShapeRef(ProjectileKey);
+			FBLet quickfib = Barrage->GetShapeRef(ProjectileKey);
 			bool ProbablyValid = FBarragePrimitive::IsNotNull(quickfib);
 			if (ProbablyValid)
 			{
@@ -337,9 +339,9 @@ void UArtilleryProjectileDispatch::OnBarrageContactAdded(const BarrageContactEve
 					if (found)
 					{
 						TSharedPtr<FArtilleryGun> ProjectileGun = MyDispatch->GetPointerToGun(GunKey);
-						if (ProjectileGun && UBarrageDispatch::SelfPtr)
+						if (ProjectileGun && Barrage)
 						{
-							auto hold = UBarrageDispatch::SelfPtr->GetShapeRef(EntityHitKey);
+							auto hold = Barrage->GetShapeRef(EntityHitKey);
 							if (hold)
 							{
 								FSkeletonKey EntityKeyIntoArtillery = hold->KeyOutOfBarrage;
@@ -352,7 +354,7 @@ void UArtilleryProjectileDispatch::OnBarrageContactAdded(const BarrageContactEve
 						}
 					}
 					// This works though!
-					UArtilleryLibrary::TombstonePrimitive(KeyIntoArtillery);
+					UArtilleryLibrary::TombstonePrimitive(Dispatch, KeyIntoArtillery);
 				}
 			}
 		}

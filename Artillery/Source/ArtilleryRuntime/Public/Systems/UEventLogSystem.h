@@ -32,7 +32,6 @@ class ARTILLERYRUNTIME_API UEventLogSubsystem : public UTickableWorldSubsystem, 
 	GENERATED_BODY()
 
 public:
-	static inline UEventLogSubsystem* SelfPtr = nullptr;
 	constexpr static int OrdinateSeqKey = ORDIN::E_D_C::EventLogSystem;
 	
 	UEventLogSubsystem() : MyDispatch(nullptr), EventLog()

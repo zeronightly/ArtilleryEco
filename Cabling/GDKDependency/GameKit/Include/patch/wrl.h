@@ -1,20 +1,3 @@
-//
-// Copyright (C) Microsoft Corporation
-// All rights reserved.
-//
-// Code in details namespace is for internal usage within the library code
-//
-
-#ifndef _WRL_H_
-#define _WRL_H_
-
-#ifdef _MSC_VER
-#pragma once
-#endif  // _MSC_VER
-
-#include <wrl\client.h>
-#include <wrl\implements.h>
-#include "wrl\module.h"
-#include "wrl\event.h"
-
-#endif // _WRL_H_
+version https://git-lfs.github.com/spec/v1
+oid sha256:b6244e6ae8ab52ded2da4daab4983e498a09d80b98951292ee6e53c0ec62aa45
+size 349

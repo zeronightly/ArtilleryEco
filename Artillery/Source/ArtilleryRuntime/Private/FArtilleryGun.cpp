@@ -99,8 +99,6 @@ bool FArtilleryGun::Initialize(const FGunKey& KeyFromDispatch, const bool MyCode
                                UArtilleryPerActorAbilityMinimum* FFC)
 {
 	MyGunKey = KeyFromDispatch;
-		
-	MyDispatch = UArtilleryLibrary::GetArtilleryDispatch_LowSafety();
 	MyTransformDispatch = MyDispatch->GetWorld()->GetSubsystem<UTransformDispatch>();
 	MyProjectileDispatch = MyDispatch->GetWorld()->GetSubsystem<UArtilleryProjectileDispatch>();
 
@@ -116,10 +114,9 @@ bool FArtilleryGun::Initialize(const FGunKey& KeyFromDispatch, const bool MyCode
 	InitialGunAttributes.Add(AttribKey::LastFiredTimestamp, 0);
 	InitialGunAttributes.Add(TRIGGER_PULLED, 0);
 	MyAttributes = MakeShareable(new FAttributeMap(MyGunKey, MyDispatch, InitialGunAttributes));
-		
-	UTransformDispatch* TransformDispatch = MyDispatch->GetWorld()->GetSubsystem<UTransformDispatch>();
-	TWeakObjectPtr<AActor> ActorPointer = TransformDispatch->GetAActorByObjectKey(MyProbableOwner);
-	if (ActorPointer.IsValid() && UArtilleryLibrary::GetLocalPlayer_UNSAFE() == ActorPointer && ActorPointer != nullptr)
+	
+	TWeakObjectPtr<AActor> ActorPointer = MyTransformDispatch->GetAActorByObjectKey(MyProbableOwner);
+	if (ActorPointer.IsValid() && UArtilleryLibrary::GetLocalPlayer_UNSAFE(MyDispatch) == ActorPointer && ActorPointer != nullptr)
 	{
 		PlayerCameraComponent = ActorPointer->GetComponentByClass<UCameraComponent>();
 	}
@@ -130,7 +127,7 @@ bool FArtilleryGun::Initialize(const FGunKey& KeyFromDispatch, const bool MyCode
 		
 	FiringPointComponent = Cast<USceneComponent, UObject>(ActorPointer->GetDefaultSubobjectByName(TEXT("BeamFiringPoint")));
 	FiringPointComponentKey = MAKE_BONEKEY(&FiringPointComponent);
-	TransformDispatch->RegisterSceneCompToShadowTransform(FiringPointComponentKey, FiringPointComponent.Get());
+	MyTransformDispatch->RegisterSceneCompToShadowTransform(FiringPointComponentKey, FiringPointComponent.Get());
 		
 	//we'd like to do it earlier, but there's actually not a great moment to do this.
 	if(Prefire == nullptr)
@@ -192,5 +189,5 @@ void FArtilleryGun::ProjectileCollided(const FSkeletonKey ProjectileKey, const F
 		}
 	}
 
-	UArtilleryLibrary::ApplyDamage(HitEntity, 100);
+	UArtilleryLibrary::ApplyDamage(MyDispatch, HitEntity, 100);
 }

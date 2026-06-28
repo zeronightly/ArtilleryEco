@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "KeyedConcept.h"
 #include "SkeletonTypes.h"
 #include "Subsystems/WorldSubsystem.h"
@@ -38,8 +39,8 @@ namespace ORDIN
 	//It's also fast, readable, and surprisingly maintainable.
 	typedef TPair<int,IKeyedConstruct*> SequencedKey;
 	typedef TArray<SequencedKey> InitSequence;
-	typedef TPair<int,ICanReady*> SubsystemKey;
-	typedef TArray<SubsystemKey> ForbiddenInitSequence;
+	typedef TPair<int,ICanReady*> SubsystemKeyPair;
+	typedef TArray<SubsystemKeyPair> ForbiddenInitSequence;
 	static constexpr int FirstSeqKey		= 10;
 	static constexpr int Step = 100;
 	//if you have more than 1000000 subsystems you need online before you can begin
@@ -50,6 +51,7 @@ namespace ORDIN
 	//Enum DeCircularizing
 	enum E_D_C
 	{
+		LocomoCommons = Step,
 		LastSubstrateKey		= Step * Step * Step,
 		ArtilleryOnline = LastSubstrateKey + LastSubstrateKey,
 		EnemyTagState = ArtilleryOnline + ORDIN::Step,
@@ -60,7 +62,10 @@ namespace ORDIN
 		EventLogSystem = UIECSSystem + ORDIN::Step,
 		
 		SkeletalAnimationSystem = EventLogSystem + ORDIN::Step,
-		LastSuperstructureKey = ArtilleryOnline + LastSubstrateKey
+		InventorySystem = SkeletalAnimationSystem + ORDIN::Step,
+		
+		TextNames = InventorySystem + ORDIN::Step,
+		LastSuperstructureKey = TextNames + LastSubstrateKey
 	};
 }
 

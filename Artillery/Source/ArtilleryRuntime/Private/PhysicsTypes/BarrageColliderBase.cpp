@@ -1,5 +1,5 @@
 #include "PhysicsTypes/BarrageColliderBase.h"
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 #include "Debug/BarrageDebugComponent.h"
 #endif
 

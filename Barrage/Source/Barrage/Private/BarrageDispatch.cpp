@@ -5,15 +5,51 @@
 #include "FWorldSimOwner.h"
 #include "CoordinateUtils.h"
 #include "FBPhysicsInput.h"
-#include "LandscapeProxy.h"
 #include "LowLogTimeAndRate.h"
+#if WITH_EDITOR
+#include "BarrageDebugger.h"
+#include "DebugRenderer.h"
+#include "imgui.h"
+#endif
 
 //https://github.com/GaijinEntertainment/DagorEngine/blob/71a26585082f16df80011e06e7a4e95302f5bb7f/prog/engine/phys/physJolt/joltPhysics.cpp#L800
 //this is how gaijin uses jolt, and war thunder's honestly a pretty strong comp to our use case.
 
+#ifdef WITH_EDITOR
+void UBarrageDispatch::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+		if (BarrageDebugger.IsValid())
+		{
+			BarrageDebugger->Draw(DeltaTime);
+		}
+	
+}
+
+#endif
+
+void UBarrageDispatch::SaveState(JPH::StateRecorder& inStream) {
+	// Stubbed: FBCharacterBase::SaveState not yet ported from DeltaDelta.
+	// See PatchSalvage/rollback_integration.patch for the verbatim body.
+	UE_LOG(LogTemp, Warning, TEXT("SaveState called but FBCharacterBase save/restore not yet ported"));
+}
+
+void UBarrageDispatch::RestoreState(JPH::StateRecorder& inStream) {
+	UE_LOG(LogTemp, Warning, TEXT("RestoreState called but FBCharacterBase save/restore not yet ported"));
+}
+
 bool UBarrageDispatch::RegistrationImplementation()
 {
 	FScopeLock GrantFeedLock(&MultiAccLock);
+	
+#if WITH_EDITOR
+	BarrageDebugger = MakeShared<class BarrageDebugger>();
+
+	if (BarrageDebugger.IsValid())
+	{
+		BarrageDebugger->Initialize(this);
+	}
+#endif
 	//locks the job system's threads on the grant worker func until we're spun up.
 	UE_LOG(LogTemp, Warning, TEXT("Barrage:Subsystem: Online"));
 	for (TSharedPtr<TArray<FBLet>>& TombFibletArray : Tombs)
@@ -25,7 +61,6 @@ bool UBarrageDispatch::RegistrationImplementation()
 	UE_LOG(LogTemp, Warning, TEXT("Barrage:TransformUpdateQueue: Online"));
 	GameTransformPump = MakeShareable(new TransformUpdatesForGameThread());
 	ContactEventPump = MakeShareable(new TCircularQueue<BarrageContactEvent>(8192));
-	FBarragePrimitive::GlobalBarrage = this;
 	//this approach may actually be too slow. it is pleasingly lockless, but it allocs 16megs
 	//and just iterating through that could be Rough for the gamethread.
 	//so we may need to think about options.
@@ -35,11 +70,10 @@ bool UBarrageDispatch::RegistrationImplementation()
 	//used by UE delegates. Bind isn't exactly like a delegate though, because this actually performs a pretty slick typehiding trick
 	//which allows us to cleanly break a dependency.
 	std::function<void(int)> bind = std::bind(&UBarrageDispatch::GrantWorkerFeed, this, std::placeholders::_1);
-	JoltGameSim = MakeShareable(new FWorldSimOwner(TickRateInDelta, bind));
+	JoltGameSim = MakeShareable(new FWorldSimOwner(this, TickRateInDelta, bind));
 	//https://github.com/Thermadiag/seq/blob/main/docs/concurrent_map.md
-	JoltBodyLifecycleMapping = MakeShareable(new KeyToFBLet(8192));
-	TranslationMapping = MakeShareable(new KeyToKey());
-	SelfPtr = this;
+	JoltBodyLifecycleMapping = std::make_shared<KeyToFBLet>(8192);
+	TranslationMapping = std::make_shared<KeyToKey>(8192);
 	return true;
 }
 
@@ -64,15 +98,7 @@ void UBarrageDispatch::GrantClientFeed()
 	++ThreadAccTicker;
 }
 
-UBarrageDispatch::UBarrageDispatch()
-{
-}
 
-UBarrageDispatch::~UBarrageDispatch()
-{
-	//now that all primitives are destructed
-	FBarragePrimitive::GlobalBarrage = nullptr;
-}
 
 void UBarrageDispatch::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -87,9 +113,24 @@ void UBarrageDispatch::OnWorldBeginPlay(UWorld& InWorld)
 
 void UBarrageDispatch::Deinitialize()
 {
-	SelfPtr = nullptr;
 	Super::Deinitialize();
-	JoltBodyLifecycleMapping = nullptr;
+	auto fwpin = JoltGameSim;
+	
+	if (JoltBodyLifecycleMapping && fwpin)
+	{
+		
+		JoltBodyLifecycleMapping->visit_all([](std::pair<FBarrageKey, FBLet>& Pair)
+		{
+			if (Pair.second)
+			{
+				Pair.second->DestroyPrimitive_Internal();
+			}
+		});
+		
+		
+		JoltBodyLifecycleMapping = nullptr;
+	}
+	
 	TranslationMapping = nullptr;
 	for (TSharedPtr<TArray<FBLet>>& TombFibletArray : Tombs)
 	{
@@ -247,7 +288,7 @@ FBLet UBarrageDispatch::ManagePointers(FSkeletonKey OutKey, FBarrageKey temp, FB
 	//interestingly, you can't use auto here. don't try. it may allocate a raw pointer internal
 	//and that will get stored in the jolt body lifecycle mapping. 
 	//it basically ensures that you will get turned into a pillar of salt.
-	FBLet indirect = MakeShareable(new FBarragePrimitive(temp, OutKey));
+	FBLet indirect = MakeShareable(new FBarragePrimitive(temp, OutKey, JoltGameSim.Get()));
 	indirect->Me = form;
 	JoltBodyLifecycleMapping->insert_or_assign(indirect->KeyIntoBarrage, indirect);
 	TranslationMapping->insert_or_assign(indirect->KeyOutOfBarrage, indirect->KeyIntoBarrage);
@@ -301,12 +342,12 @@ FBLet UBarrageDispatch::LoadEnemyHitboxFromStaticMesh(FBTransform& MeshTransform
 	return nullptr;
 }
 
-void UBarrageDispatch::CreateHeightfieldLandscapeMesh(const TNotNull<const ALandscapeProxy*> LandscapeActor)
-{
-	
-	check(JoltGameSim)
-	JoltGameSim->CreateHeightfieldLandscapeMesh(LandscapeActor);
-}
+// void UBarrageDispatch::CreateHeightfieldLandscapeMesh(const TNotNull<const ALandscapeProxy*> LandscapeActor)
+// {
+// 	
+// 	check(JoltGameSim)
+// 	JoltGameSim->CreateHeightfieldLandscapeMesh(LandscapeActor);
+// }
 
 //unlike our other ecs components in artillery, barrage dispatch does not maintain the mappings directly.
 //this is because we may have _many_ jolt sims running if we choose to do deterministic rollback in certain ways.
@@ -321,7 +362,7 @@ FBLet UBarrageDispatch::GetShapeRef(FBarrageKey Existing) const
 	//that this thoroughfare? it leads into the region of peril.
 	//3) you get a valid shared pointer which will hold the asset open until you're done, but the markings are being set
 	//this means your calls will all succeed but none will be applied during the apply shadow phase.
-	TSharedPtr<KeyToFBLet> holdopen = JoltBodyLifecycleMapping;
+	auto holdopen = JoltBodyLifecycleMapping;
 	FBLet out;
 	return holdopen && holdopen->visit(Existing, [&out](auto& a) { out = a.second; }) ? out : nullptr;
 }
@@ -336,13 +377,13 @@ FBLet UBarrageDispatch::GetShapeRef(FSkeletonKey Existing) const
 	//that this thoroughfare? it leads into the region of peril.
 	//3) you get a valid shared pointer which will hold the asset open until you're done, but the markings are being set
 	//this means your calls will all succeed but none will be applied during the apply shadow phase.
-	TSharedPtr<KeyToKey> holdopen = TranslationMapping;
+	auto holdopen = TranslationMapping;
 	if (holdopen)
 	{
 		FBarrageKey key = 0;
 		if (holdopen->visit(Existing, [&key](auto& a) { key = a.second; }))
 		{
-			TSharedPtr<KeyToFBLet> HoldMapping = JoltBodyLifecycleMapping;
+			auto HoldMapping = JoltBodyLifecycleMapping;
 			if (HoldMapping)
 			{
 				FBLet deref;
@@ -361,9 +402,9 @@ FBLet UBarrageDispatch::GetShapeRef(FSkeletonKey Existing) const
 
 void UBarrageDispatch::FinalizeReleasePrimitive(FBarrageKey BarrageKey)
 {
-	if (JoltGameSim)
+	if (auto Pin = JoltGameSim)
 	{
-		JoltGameSim->FinalizeReleasePrimitive(BarrageKey);
+		Pin->FinalizeReleasePrimitive(BarrageKey);
 	}
 }
 
@@ -500,7 +541,6 @@ void UBarrageDispatch::StepWorld(uint64 Time, uint64_t TickCount)
 	TRACE_CPUPROFILER_EVENT_SCOPE(Step World);
 	if (this && JoltGameSim && PinSim)
 	{
-		CustomTimer<"BusyWorkerBarrageStart"> TimerPhysStep;
 		if (TickCount % 64 == 0)
 		{
 			TRACE_CPUPROFILER_EVENT_SCOPE(Broadphase Optimize);
@@ -508,9 +548,7 @@ void UBarrageDispatch::StepWorld(uint64 Time, uint64_t TickCount)
 		}
 
 		CleanTombs();
-		CustomTimer<"BusyWorkerBarragePostClean"> PostClean;
 		PinSim->StepSimulation();
-		CustomTimer<"BusyWorkerBarragePostStep"> PostStep;
 		TSharedPtr<TMap<FBarrageKey, TSharedPtr<FBCharacterBase>>> HoldOpenCharacters = PinSim->CharacterToJoltMapping;
 		if (HoldOpenCharacters)
 		{
@@ -532,18 +570,17 @@ void UBarrageDispatch::StepWorld(uint64 Time, uint64_t TickCount)
 
 
 		{
-			CustomTimer<"BusyWorkerBarragePreLifeUpdate"> PreUpdate;
 			TRACE_CPUPROFILER_EVENT_SCOPE(Jolt Body Lifecycle Update);
 			//maintain tombstones
-			TSharedPtr<KeyToFBLet> HoldCuckooLifecycle = JoltBodyLifecycleMapping;
-			TSharedPtr<FWorldSimOwner> GameSimHoldOpen = JoltGameSim;
+			auto HoldCuckooLifecycle = JoltBodyLifecycleMapping;
+			auto GameSimHoldOpen = JoltGameSim;
 			//this costs basically nothing unless you smash into the lock. gonna have to figure that out soon...
 			auto PinQueue = this->GameTransformPump;
-			if (GameSimHoldOpen && HoldCuckooLifecycle && HoldCuckooLifecycle.Get() && !HoldCuckooLifecycle.Get()->
+			if (GameSimHoldOpen && HoldCuckooLifecycle && HoldCuckooLifecycle.get() && !HoldCuckooLifecycle.get()->
 				empty() && PinQueue)
 			{
 				FWorldSimOwner::BodyIDVector bodies;
-				GameSimHoldOpen->GetBodiesList(bodies);
+				GameSimHoldOpen->physics_system->GetActiveBodies(JPH::EBodyType::RigidBody, bodies);
 
 				FBarragePrimitive* FBP;
 				for (JPH::BodyID CanonAvailableBody : bodies)
@@ -588,8 +625,6 @@ bool UBarrageDispatch::BroadcastContactEvents() const
 			const BarrageContactEvent* Update = HoldOpen->Peek();
 			if (Update)
 			{
-				try
-				{
 					switch (Update->ContactEventType)
 					{
 					case EBarrageContactEventType::ADDED:
@@ -606,11 +641,6 @@ bool UBarrageDispatch::BroadcastContactEvents() const
 						break;
 					}
 					HoldOpen->Dequeue();
-				}
-				catch (...)
-				{
-					return false; //we'll be back! we'll be back!!!!
-				}
 			}
 		}
 		return true;

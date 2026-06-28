@@ -44,7 +44,7 @@ void UThistleDispatch::ArtilleryTick(uint64_t TicksSoFar)
 		for(TTuple<ActorKey, TObjectPtr<AThistleInject>>& Enemy : ThistleBehavioralist->ActorToThistleAIMapping)
 		{
 			bool YouAliveInThere = false;
-			FVector center = UArtilleryLibrary::implK2_GetLocation(Enemy.Key, YouAliveInThere);
+			FVector center = UArtilleryLibrary::implK2_GetLocation(UArtilleryDispatch::Get(GetWorld()),  Enemy.Key, YouAliveInThere);
 			if (YouAliveInThere)
 			{
 				FVector2d TwoDCenter = FVector2d(center.X, center.Y);
@@ -58,6 +58,9 @@ void UThistleDispatch::ArtilleryTick(uint64_t TicksSoFar)
 }
 
 bool UThistleDispatch::RegisterNewActorAnimState(const ActorKey NewKey, AActor* Actor) {
+	
+	UE_LOG(LogTemp, Warning,
+	TEXT("SkeletonKey %s of %s animation registering..."), * FSkeletonKey( NewKey).PrettyPrint(), ToCStr( Actor->GetName()) );
 	if (!Actor->IsValidLowLevelFast()) {
 		return false;
 	}
@@ -93,7 +96,8 @@ bool UThistleDispatch::RegisterNewActorAnimState(const ActorKey NewKey, AActor* 
 
 void UThistleDispatch::UnregisterActorAnimState(const ActorKey ActorKey) {
 	// ActorToAIAnimStateMapping.Remove(ActorKey);
-	
+	UE_LOG(LogTemp, Warning,
+TEXT("SkeletonKey %s animation deregistering..."), * FSkeletonKey( ActorKey).PrettyPrint(), ToCStr( this->GetName()) );
 	SkeletalMeshDispatch->UnregisterAnimInstanceStateForUpdate(ActorKey);
 }
 

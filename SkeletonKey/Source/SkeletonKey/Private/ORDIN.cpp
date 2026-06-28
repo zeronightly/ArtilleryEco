@@ -73,7 +73,7 @@ void UOrdinatePillar::REGISTERLORD(int RegisterAs, ISkeletonLord* YourThisPointe
 {
 	if (YourThisPointer)
 	{
-		Data.Subsystems.Add(ORDIN::SubsystemKey(RegisterAs, YourThisPointerAgain));
+		Data.Subsystems.Add(ORDIN::SubsystemKeyPair(RegisterAs, YourThisPointerAgain));
 	}
 	else 
 	{
@@ -90,7 +90,8 @@ void UOrdinatePillar::REGISTERORDER(int RegisterAs, int group, IKeyedConstruct* 
 		{
 			if (group > 10 || group < 0)
 			{
-				throw std::invalid_argument("Invalid group");
+				UE_LOG(LogTemp, Error, TEXT("ORDIN does not support groups higher than 10 or lower than 0. Setting your thing to 10 and rolling onward."));
+				group = 10; // enjoy. 
 			}
 			auto forcealloc = ORDIN::SequencedKey(RegisterAs, YourThisPointer);
 			Data.GROUPS[group]->Add(forcealloc);
@@ -114,7 +115,7 @@ void UOrdinatePillar::PostInitialize()
 			MyWorld->IsReady = false;
 			MyWorld->IsForbidden = true;
 			Data.Subsystems.Sort();
-			for (ORDIN::SubsystemKey Register : Data.Subsystems)
+			for (ORDIN::SubsystemKeyPair Register : Data.Subsystems)
 			{
 				if (auto PossibleLord = Cast<ISkeletonLord>(Register.Value ))
 				{
@@ -122,7 +123,14 @@ void UOrdinatePillar::PostInitialize()
 				}
 				Register.Value->IsReady = false;
 				Register.Value->AttemptRegister();
-				MyWorld->SubsystemsReady = MyWorld->SubsystemsReady && Register.Value->IsReady;
+				if (MyWorld->SubsystemsReady && Register.Value->IsReady)
+				{
+					MyWorld->SubsystemsReady = MyWorld->SubsystemsReady && Register.Value->IsReady; //we could just set true, but this makes it MUCH easier to follow what's happening intuitively
+				}
+				else
+				{
+					UE_LOG(LogTemp, Error, TEXT("Subsystem %u failed to come up correctly, and the artillery system is likely not operational as a result. Ordin.h and the E_D_C enum should help diagnose."), ORDIN::E_D_C(Register.Key));
+				}
 			}
 			MyWorld->IsReady = MyWorld->SubsystemsReady;
 			MyWorld->IsForbidden = false;
@@ -133,7 +141,7 @@ void UOrdinatePillar::PostInitialize()
 	{
 		//if we are NOT in a game world, we'll set it up so we cannot engage with the Artillery Machinery.
 		MyWorld = std::make_shared<WorldRecord>(false, true, true);
-		for (ORDIN::SubsystemKey Register : Data.Subsystems)
+		for (ORDIN::SubsystemKeyPair Register : Data.Subsystems)
 		{
 			Register.Value->IsReady = false;
 			if (auto PossibleLord = Cast<ISkeletonLord>(Register.Value ))

@@ -8,7 +8,9 @@
 EStateTreeRunStatus FStoreRelationship::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
-	const IdentPtr V = UArtilleryDispatch::SelfPtr->GetOrAddIdent(InstanceData.SourceKey, InstanceData.Relationship);
+	
+	auto ArtilleryDispatch = Context.GetWorld()->GetSubsystem<UArtilleryDispatch>();
+	const IdentPtr V = ArtilleryDispatch->GetOrAddIdent(InstanceData.SourceKey, InstanceData.Relationship);
 	if (V)
 	{
 		V->SetCurrentValue(InstanceData.UpdateToRelatedKey);
@@ -20,23 +22,26 @@ EStateTreeRunStatus FStoreRelationship::Tick(FStateTreeExecutionContext& Context
 EStateTreeRunStatus FSetTagOfKey::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
+	auto ArtilleryDispatch = Context.GetWorld()->GetSubsystem<UArtilleryDispatch>();
 	//This seems unsafe.
-	UArtilleryDispatch::SelfPtr->AddTagToEntity(InstanceData.KeyOf, InstanceData.Tag);
+	ArtilleryDispatch->AddTagToEntity(InstanceData.KeyOf, InstanceData.Tag);
 	return EStateTreeRunStatus::Succeeded;
 }
 
 EStateTreeRunStatus FRemoveTagFromKey::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
+	auto ArtilleryDispatch = Context.GetWorld()->GetSubsystem<UArtilleryDispatch>();
 	//This seems unsafe.
-	UArtilleryDispatch::SelfPtr->RemoveTagFromEntity(InstanceData.KeyOf, InstanceData.Tag);
+	ArtilleryDispatch->RemoveTagFromEntity(InstanceData.KeyOf, InstanceData.Tag);
 	return EStateTreeRunStatus::Succeeded;
 }
 
 EStateTreeRunStatus FStoreToAttribute::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
-	AttrPtr V = UArtilleryDispatch::SelfPtr->GetAttrib(InstanceData.KeyOf, InstanceData.AttributeName);
+	auto ArtilleryDispatch = Context.GetWorld()->GetSubsystem<UArtilleryDispatch>();
+	AttrPtr V = ArtilleryDispatch->GetAttrib(InstanceData.KeyOf, InstanceData.AttributeName);
 	if (V)
 	{
 		V->SetCurrentValue(InstanceData.Value);

@@ -193,7 +193,7 @@ protected:
 						auto PhysicsDispatch = GetWorld()->GetSubsystem<UBarrageDispatch>(); //be real sure.
 						if (InitialRotationIfAny && PhysicsDispatch)
 						{
-							auto FBLease = UArtilleryLibrary::GetLocalPlayerBarrageAgent();
+							auto FBLease = UArtilleryLibrary::GetLocalPlayerBarrageAgent(MyDispatch);
 							auto RotVec = InitialRotationIfAny->CurrentValue;
 							//this allows the specification of an initial rotation for any possessed object. if the value is absent,
 							//we just keep going. if the value is present, we check if it's a unit vector. If not, it's consumed or invalid.
@@ -296,7 +296,6 @@ public:
 		//as well as cull distance problems that may emerge.
 		//critically, we need a way to make sure that the outcome is deterministic on all machines.
 		//I don't think that'll be particularly difficult, but we will need test coverage for sanity's sake.
-		throw;
 	}
 	
 	//this applies the rotation ONLY to the chaos presentation layer. There's only the tiniest bit of information backflow, and it's only used to
@@ -395,7 +394,12 @@ public:
 				auto absV = abs(Val);
 				if (absV < YawNarrowThreshold)
 				{
-					Val = Val * YawNarrowThreshold;
+					//scale, not threshold — this branch only runs when the
+					//BaseAimModulation curve asset fails to load, so the old
+					//threshold-as-multiplier (0.45) was never felt in normal play.
+					//If you LIKED the heavier fine-aim it implied, set
+					//YawNarrowScale to 0.45; the variable now does what it says.
+					Val = Val * YawNarrowScale;
 				}
 				else if (absV >= YawNarrowThreshold && Val <= YawWideThreshold)
 				{

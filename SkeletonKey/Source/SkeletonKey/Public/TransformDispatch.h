@@ -3,13 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
 #include "Kines.h"
 #include "ORDIN.h"
 #include "QuaternionQuantizer.h"
 #include "SkeletonTypes.h"
 #include "SwarmKine.h"
+#include "Engine/Engine.h"
 #include "seq/concurrent_map.hpp"
 #include "Subsystems/WorldSubsystem.h"
+
+
 
 THIRD_PARTY_INCLUDES_START
 PRAGMA_PUSH_PLATFORM_DEFAULT_PACKING
@@ -74,15 +78,32 @@ class SKELETONKEY_API UTransformDispatch : public UTickableWorldSubsystem, publi
 	FSkeletonKey DefaultObjectKey;
 	UTransformDispatch();
 	virtual ~UTransformDispatch() override;
-
-
+	
+#ifdef WITH_EDITOR
+	friend class SkeletonKeyDebugger;
+	TSharedPtr<class SkeletonKeyDebugger> SkeletonKeyDebugger;
+#endif
+	
 public:
+	static UTransformDispatch* Get(UWorld& World)
+	{
+		return World.GetSubsystem<UTransformDispatch>();
+	}
+	
+	static UTransformDispatch* Get(UObject* WorldContextObject) 
+	{
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+		if (ensure(World)) 
+		{
+			return UTransformDispatch::Get(*World);
+		}
 
+		return nullptr;
+	}
+	
 	constexpr static double MagicTolerance = 0.57;
 	constexpr static double MysticTolerance = 0.065;
 	constexpr static int OrdinateSeqKey = ORDIN::FirstSeqKey;
-	//honestly, it's gonna get used everywhere. You break it, you buy it.
-	static inline UTransformDispatch* SelfPtr = nullptr;
 	void RegisterObjectToShadowTransform(FSkeletonKey Target, TObjectPtr<AActor> Original) const;
 	void RegisterSceneCompToShadowTransform(FBoneKey Target, TObjectPtr<USceneComponent> Original) const;
 	void RegisterObjectToShadowTransform(FSkeletonKey Target, USwarmKineManager* Manager) const;
@@ -97,7 +118,7 @@ public:
 		ObjectToTransformMapping->insert_or_assign(Target, kine);
 	}
 
-	TSharedPtr<Kine> GetKineByObjectKey(FSkeletonKey Target) const;
+	TSharedPtr<Kine> GetKineByObjectKey(FSkeletonKey Target);
 	TSharedPtr<ActorKine> GetActorKineByObjectKey(FSkeletonKey Target) const;
 	TWeakObjectPtr<AActor> GetAActorByObjectKey(FSkeletonKey Target) const;
 	
@@ -149,8 +170,6 @@ inline bool UTransformDispatch::ApplyTransformUpdates(TSharedPtr<TransformUpdate
 			
 			if(Update.has_value() && !GetWorld()->bPostTickComponentUpdate)
 			{
-				try
-				{
 					if(TSharedPtr<Kine> BindOriginal = this->GetKineByObjectKey(Update->ObjectKey) )
 					{
 						//kinescope would normally be passed in, but we've removed that idiom.
@@ -170,11 +189,7 @@ inline bool UTransformDispatch::ApplyTransformUpdates(TSharedPtr<TransformUpdate
 						}
 					}
 					
-				}
-				catch (...)
-				{
-					return false; //we'll be back! we'll be back!!!!
-				}
+	
 			}
 		++HoldOpen->ConsumerOnlyLastReadScratch;
 

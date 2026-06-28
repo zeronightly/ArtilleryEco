@@ -22,7 +22,7 @@ struct FGunWeeRocket : public FArtilleryGun
 	friend class UArtilleryPerActorAbilityMinimum;
 
 public:
-	FGunWeeRocket(const FGunKey& KeyFromDispatch, int MaxAmmoIn, int FirerateIn, int ReloadTimeIn)
+	FGunWeeRocket(const FGunKey& KeyFromDispatch, int MaxAmmoIn, int FirerateIn, int ReloadTimeIn, UArtilleryDispatch* Dispatch)
 	{
 		MyGunKey = KeyFromDispatch;
 		MaxAmmo = MaxAmmoIn;
@@ -116,14 +116,14 @@ public:
 				{
 					//DrawDebugLine(MyDispatch->GetWorld(), StartLocation, StartLocation + RotationWithSpreadVector * 5000, FColor::Red, true, 5.f);
 					const auto PerTickAimDeviation = UFakeRandom::GetBoxingDispersion(
-						UArtilleryLibrary::GetTotalsTickCount(), 0, MyGunKey.GunInstanceID);
+						UArtilleryLibrary::GetTotalsTickCount(MyDispatch), 0, MyGunKey.GunInstanceID);
 					const auto Spray = UFakeRandom::GetSimpleSprayNudge(
-						UArtilleryLibrary::GetTotalsTickCount(), 0);
+						UArtilleryLibrary::GetTotalsTickCount(MyDispatch), 0);
 					
-						auto AimAt = UArtilleryLibrary::GetPlayerLocationAsEstTarget(E_PlayerKEY::CABLE);
+						auto AimAt = UArtilleryLibrary::GetPlayerLocationAsEstTarget(MyDispatch, E_PlayerKEY::CABLE);
 						if (AimAt.IsNearlyZero())
 						{
-							AimAt = UArtilleryLibrary::GetLocalPlayer_UNSAFE()->GetActorLocation();
+							AimAt = UArtilleryLibrary::GetLocalPlayer_UNSAFE(MyDispatch)->GetActorLocation();
 						}
 						AimAt.X += PerTickAimDeviation.X + Spray.X;
 						AimAt.Y += PerTickAimDeviation.Y + Spray.Y;

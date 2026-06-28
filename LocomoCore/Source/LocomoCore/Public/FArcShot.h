@@ -25,7 +25,7 @@ struct LOCOMOCORE_API FSimpleArcShot
 		AlongThisPath.Z = 0;
 		
 		double GoalHeight = FMath::Max(Origin.Z, Target.Z);
-		double ArcManipulation = GoalHeight / ApogeeHeight;
+		double ArcManipulation = GoalHeight /  (ApogeeHeight == 0 ? 1 : ApogeeHeight);
 		
 		// how you split the behaviors here is basically what determines how "smart" the aim is.
 		// this boy is pretty dumb. it'll look BASICALLY ok.

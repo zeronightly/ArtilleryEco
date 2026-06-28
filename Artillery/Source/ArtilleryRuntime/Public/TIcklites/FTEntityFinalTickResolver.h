@@ -51,30 +51,46 @@ public:
 		}
 	}
 
-	void HandleCondition(AttrMapPtr attrMap, Attr DurationVar, FGameplayTag ConditionTag)
+	//DurationAccumulator: holds value to set or add if, like damage, we are responsible in some way for managing the final value of the delta. With stuns, the abilities almost always set stun duration
+	//though I think there's a good chance we may want to start changing that. we'll probably see a duration modifier added to allow resistances, but at the moment, I'm enjoying my simpler life.
+	//DurationVar is the current canon duration. Condition tag is the condition name to set or unset.
+	//fixed: used to handle things like the pinged state which should only ever refresh their duration, not stack.
+	void HandleCondition(AttrMapPtr attrMap, Attr DurationVar, FGameplayTag ConditionTag, Attr DurationAccumulator = Attr::None, bool fixed = false)
 	{
-		AttrPtr StunDuration = attrMap->FindRef(DurationVar);
-		if (StunDuration != nullptr && StunDuration->GetCurrentValue() > 0)
+		AttrPtr ConditionDuration = attrMap->FindRef(DurationVar);
+		
+		if (ConditionDuration != nullptr && ConditionDuration->GetCurrentValue() > 0)
 		{
-			int Stunno = StunDuration->GetCurrentValue();
-			int Safety = StunDuration->GetPriorValue();
+			int Stunno = ConditionDuration->GetCurrentValue();
+			int Safety = ConditionDuration->GetPriorValue();
+			if (DurationAccumulator != Attr::None)
+			{
+				AttrPtr ConditionDurationAcc = attrMap->FindRef(DurationVar);
+				if (ConditionDuration != nullptr)
+				{
+					double amount = fixed ? ConditionDurationAcc->GetBaseValue(): ConditionDuration->GetCurrentValue() + ConditionDurationAcc->GetCurrentValue();
+					ConditionDuration->SetCurrentValue(amount);
+				}
+			}
 			if (Stunno == 1 || (Safety > 0 && Stunno <= 0))
 			{
 				ADispatch->DispatchOwner->RemoveTagFromEntity(EntityKey, ConditionTag);
-				StunDuration->SetCurrentValue(0.0);
+				ConditionDuration->SetCurrentValue(0.0);
 			}
 			else
 			{
 				if(Safety == 0 && Stunno > 0)
 				{
-					ADispatch->DispatchOwner->AddTagToEntity(EntityKey, TAG_Condition_Stun);
+					ADispatch->DispatchOwner->AddTagToEntity(EntityKey, ConditionTag);
+					
 				}
 				else
 				{
-					StunDuration->SetCurrentValue(Stunno-1.0);
+					ConditionDuration->SetCurrentValue(Stunno-1.0);
 				}
 			}
 		}
+		
 	}
 
 	//This can be set up to autowire, but I'm not sure we're keeping these mechanisms yet.
@@ -82,14 +98,25 @@ public:
 	void TICKLITE_Apply()
 	{
 		//factor the get attr down to the impl.
+		bool TookDamage = false;
+		float DamageTaken = 0.0;
 		AttrMapPtr attrMap = ADispatch->GetAttribMap(EntityKey);
 		if (attrMap == nullptr)
 		{
 			return;
 		}
-		
+		AttrPtr PingedDuration = attrMap->FindRef(E_AttribKey::PingedDuration);
 		this->RechargeClamp(attrMap, Attr::ManaRechargePerTick, Attr::MaxMana, Attr::Mana);
+		if (PingedDuration && PingedDuration->GetCurrentValue() > 0.0)
+		{
+			//add any special effects while pinged here. we already set a tag, so don't handle audio here or stuff.
+			//but if you need to manage some per tick state based on if the player IS pinged, here's good.
+		}
+		else
+		{
+			//if the player or enemy is NOT pinged, we'll recharge shields. Might be other stuff! few enemies have shields.
 		this->RechargeClamp(attrMap, Attr::ShieldsRechargePerTick, Attr::MaxShields, Attr::Shields);
+		}
 		this->RechargeClamp(attrMap, Attr::HealthRechargePerTick, Attr::MaxHealth, Attr::Health);
 
 		AttrPtr proposedDamage = attrMap->FindRef(Attr::ProposedDamage);
@@ -123,7 +150,9 @@ public:
 					healthAttr->SetCurrentValue(newHealth);
 					if (newHealth < originalHealth)
 					{
-						ADispatch->DispatchOwner->AddTagToEntity(EntityKey, GameplayEvent_Damaged);
+						ADispatch->DispatchOwner->AddTagToEntity(EntityKey, GameplayEvent_Damaged);//change to a bounce tag effect? that's thistle dependent though...
+						TookDamage = true;
+						DamageTaken = originalHealth - newHealth;
 					}
 				}
 			}
@@ -132,6 +161,7 @@ public:
 
 		//stun handler - condition example
 		HandleCondition(attrMap, Attr::StunDuration, TAG_Condition_Stun);
+		HandleCondition(attrMap, Attr::PingedDuration, TAG_Condition_Pinged, TookDamage ? Attr::PerHitPingedDuration : Attr::None, true);
 	}
 	
 	void TICKLITE_CoreReset()

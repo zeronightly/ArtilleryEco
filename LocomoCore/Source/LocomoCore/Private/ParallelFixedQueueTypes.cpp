@@ -1,4 +1,4 @@
-﻿#include "Structures/ParallelFixedQueueTypes.h"
+﻿#include "Structures/ConcurrencyTypes/ParallelFixedQueueTypes.h"
 //this is all a hodgepodge variation on a https://en.wikibooks.org/wiki/More_C%2B%2B_Idioms/Nifty_Counter
 #include <mutex>
 
@@ -13,7 +13,7 @@ std::vector<FSkeletonKey> FParallelFixedSequencingQueue::UpdateAndConsume()
 	//once owned, you MUST use the same thread for updates and consumes.
 	if (Consumer != std::this_thread::get_id())
 	{
-		throw;
+		ensureMsgf(false, TEXT("Attempted to use the different threads for updates and consumes. You can't safely do this currently."));
 	}
 
 	for (int Q = 0; Q < Width; ++Q)

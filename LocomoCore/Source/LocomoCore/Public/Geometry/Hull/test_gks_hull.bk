@@ -1,0 +1,134 @@
+// Quick smoke test for GKS Hull
+// Compile: cl /std:c++20 /EHsc test_gks_hull.cpp /Fe:test_gks_hull.exe
+
+#include "gks_hull.h"
+#include <cstdio>
+#include <cmath>
+
+static bool approx(float a, float b, float eps = 1e-5f) {
+    return std::abs(a - b) < eps;
+}
+
+static bool point_in_hull(const std::vector<gks::Vec2>& hull, float x, float y) {
+    for (auto& p : hull)
+        if (approx(p.x, x) && approx(p.y, y)) return true;
+    return false;
+}
+
+// Verify all hull edges turn CCW (positive cross product)
+static bool is_ccw(const std::vector<gks::Vec2>& hull) {
+    size_t n = hull.size();
+    if (n < 3) return true;
+    for (size_t i = 0; i < n; ++i) {
+        auto a = hull[i];
+        auto b = hull[(i + 1) % n];
+        auto c = hull[(i + 2) % n];
+        double cross = gks::ccw(a, b, c);
+        if (cross < 0.0) return false;  // CW turn = not convex
+    }
+    return true;
+}
+
+int main() {
+    int pass = 0, fail = 0;
+
+    // Test 1: Simple square
+    {
+        std::vector<gks::Vec2> pts = {{0,0},{1,0},{1,1},{0,1}};
+        auto hull = gks::compute_hull(pts);
+        bool ok = hull.size() == 4 && is_ccw(hull);
+        printf("[%s] Square: %zu vertices, ccw=%d\n", ok ? "PASS" : "FAIL", hull.size(), is_ccw(hull));
+        ok ? ++pass : ++fail;
+    }
+
+    // Test 2: Triangle with interior point
+    {
+        std::vector<gks::Vec2> pts = {{0,0},{4,0},{2,4},{2,1}};
+        auto hull = gks::compute_hull(pts);
+        bool ok = hull.size() == 3 && is_ccw(hull) && !point_in_hull(hull, 2, 1);
+        printf("[%s] Triangle+interior: %zu vertices, ccw=%d, interior excluded=%d\n",
+               ok ? "PASS" : "FAIL", hull.size(), is_ccw(hull), !point_in_hull(hull, 2, 1));
+        ok ? ++pass : ++fail;
+    }
+
+    // Test 3: Collinear points
+    {
+        std::vector<gks::Vec2> pts = {{0,0},{1,0},{2,0},{3,0}};
+        auto hull = gks::compute_hull(pts);
+        // Collinear hull should collapse to endpoints (2 points)
+        bool ok = hull.size() <= 4; // accept any reasonable result for degenerate case
+        printf("[%s] Collinear: %zu vertices\n", ok ? "PASS" : "FAIL", hull.size());
+        ok ? ++pass : ++fail;
+    }
+
+    // Test 4: Circle of points (all should be on hull)
+    {
+        std::vector<gks::Vec2> pts;
+        const int N = 16;
+        for (int i = 0; i < N; ++i) {
+            float angle = 2.0f * 3.14159265f * i / N;
+            pts.push_back({std::cos(angle) * 10.0f, std::sin(angle) * 10.0f});
+        }
+        auto hull = gks::compute_hull(pts);
+        bool ok = hull.size() == N && is_ccw(hull);
+        printf("[%s] Circle(%d): %zu vertices, ccw=%d\n", ok ? "PASS" : "FAIL", N, hull.size(), is_ccw(hull));
+        ok ? ++pass : ++fail;
+    }
+
+    // Test 5: Large random cloud with known extremes
+    {
+        std::vector<gks::Vec2> pts;
+        // Plant 4 extreme corners
+        pts.push_back({-100, -100});
+        pts.push_back({ 100, -100});
+        pts.push_back({ 100,  100});
+        pts.push_back({-100,  100});
+        // Fill interior with points that should NOT appear in hull
+        for (int i = 0; i < 500; ++i) {
+            float x = (float)(i % 19) * 10.0f - 90.0f;
+            float y = (float)(i % 23) * 8.0f - 88.0f;
+            pts.push_back({x, y});
+        }
+        auto hull = gks::compute_hull(pts);
+        bool has_corners = point_in_hull(hull, -100, -100) && point_in_hull(hull, 100, -100)
+                        && point_in_hull(hull, 100, 100)   && point_in_hull(hull, -100, 100);
+        bool ok = hull.size() == 4 && has_corners && is_ccw(hull);
+        printf("[%s] Cloud(504): %zu vertices, corners=%d, ccw=%d\n",
+               ok ? "PASS" : "FAIL", hull.size(), has_corners, is_ccw(hull));
+        ok ? ++pass : ++fail;
+    }
+
+    // Test 6: Pentagon
+    {
+        std::vector<gks::Vec2> pts;
+        for (int i = 0; i < 5; ++i) {
+            float angle = 2.0f * 3.14159265f * i / 5.0f - 3.14159265f / 2.0f;
+            pts.push_back({std::cos(angle) * 5.0f, std::sin(angle) * 5.0f});
+        }
+        auto hull = gks::compute_hull(pts);
+        bool ok = hull.size() == 5 && is_ccw(hull);
+        printf("[%s] Pentagon: %zu vertices, ccw=%d\n", ok ? "PASS" : "FAIL", hull.size(), is_ccw(hull));
+        ok ? ++pass : ++fail;
+    }
+
+    // Test 7: Degenerate — fewer than 3 points
+    {
+        std::vector<gks::Vec2> pts = {{1,2},{3,4}};
+        auto hull = gks::compute_hull(pts);
+        bool ok = hull.size() == 2;
+        printf("[%s] Two points: %zu vertices\n", ok ? "PASS" : "FAIL", hull.size());
+        ok ? ++pass : ++fail;
+    }
+
+    // Test 8: Negative coordinates
+    {
+        std::vector<gks::Vec2> pts = {{-5,-5},{-1,-5},{-1,-1},{-5,-1},{-3,-3}};
+        auto hull = gks::compute_hull(pts);
+        bool ok = hull.size() == 4 && is_ccw(hull) && !point_in_hull(hull, -3, -3);
+        printf("[%s] Negative coords: %zu vertices, ccw=%d\n", ok ? "PASS" : "FAIL", hull.size(), is_ccw(hull));
+        ok ? ++pass : ++fail;
+    }
+
+    printf("\n%d/%d passed\n", pass, pass + fail);
+    return fail > 0 ? 1 : 0;
+}

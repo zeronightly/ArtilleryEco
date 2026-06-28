@@ -1,11 +1,13 @@
 ﻿#pragma once
-
+#include "CoreMinimal.h"
+#include "Engine/Engine.h"
 #include <functional>
-
+#include "CoreTypes.h"
+#include "CoreUObject.h"
 #include "SkeletonTypes.h"
 
 
-class KineData 
+class SKELETONKEY_API KineData 
 {
 public:
 	virtual ~KineData() = default;
@@ -20,7 +22,7 @@ public:
 //a key, rather than the other way around, and they're the capability that the transform dispatch offers.
 //in that sense, the transform dispatch is just another ECS pillar, and kines are just the function objects that it tracks
 
-class KinematicRef : public KineData
+class SKELETONKEY_API KinematicRef : public KineData
 {
 public:
 	TOptional<FTransform> CopyOfTransformLike()
@@ -42,11 +44,11 @@ protected:
 };
 //You can assess the broad type of the Kine's semantic meaning with the hidden runtime type infix found in every ObjectKey.
 //This constant-time single-layer reflection trick allows runtime typesafety without allowing deep hierarchy.
-using Kine = KinematicRef;
+typedef KinematicRef Kine;
 
 class ActorKine;
 
-class ActorKine : public Kine
+class SKELETONKEY_API ActorKine : public Kine
 {
 	//static inline FActorComponentTickFunction FALSEHOOD_MALEVOLENCE_TRICKERY = FActorComponentTickFunction();
 public:

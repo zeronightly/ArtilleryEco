@@ -6,7 +6,7 @@ EStateTreeRunStatus FScoot::Tick(FStateTreeExecutionContext& Context, const floa
 {
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 	bool bShuckSuccess = false;
-	FVector TargetLocation = InstanceData.ShuckPoi(bShuckSuccess);
+	FVector TargetLocation = InstanceData.ShuckPoi(Context, bShuckSuccess);
 	if (!bShuckSuccess)
 	{
 		return EStateTreeRunStatus::Failed;
@@ -16,7 +16,7 @@ EStateTreeRunStatus FScoot::Tick(FStateTreeExecutionContext& Context, const floa
 	// The State Tree transition to this state should be evaluated periodically.
 
 	bool bFoundSelf = false;
-	FVector HereIAm = UArtilleryLibrary::implK2_GetLocation(InstanceData.KeyOf, bFoundSelf);
+	FVector HereIAm = UArtilleryLibrary::implK2_GetLocation(UArtilleryDispatch::Get(Context.GetWorld()), InstanceData.KeyOf, bFoundSelf);
 	if (bFoundSelf && (HereIAm - TargetLocation).Length() < Tolerance)
 	{
 		// We are too close, so we need to scoot.
@@ -43,7 +43,7 @@ EStateTreeRunStatus FScoot::AttemptScootPath(FStateTreeExecutionContext& Context
 	// The new destination is a point further away from the target that is 'Tolerance' distance away
 	FVector Destination = HereIAm + (DirectionAwayFromTarget * (Tolerance * 1.5f));
 
-	if (UThistleBehavioralist::AttemptInvokePathingOnKey(InstanceData.KeyOf, Destination))
+	if (UThistleBehavioralist::AttemptInvokePathingOnKey(UThistleBehavioralist::Get(Context.GetWorld()), InstanceData.KeyOf, Destination))
 	{
 		// Pathing was successfully invoked. We are running until we reach the destination or the condition changes
 		return EStateTreeRunStatus::Running;
@@ -56,26 +56,27 @@ EStateTreeRunStatus FScoot::AttemptScootPath(FStateTreeExecutionContext& Context
 EStateTreeRunStatus FBreakOff::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
+	auto ArtilleryDispatch = Context.GetWorld()->GetSubsystem<UArtilleryDispatch>();
 	bool Shuck = false;
-	FVector location = InstanceData.ShuckPoi(Shuck);
+	FVector location = InstanceData.ShuckPoi(Context,Shuck);
 	if (!Shuck)
 	{
 		return EStateTreeRunStatus::Failed;
 	}
 	
 	//run on cadence.
-	if (UArtilleryLibrary::GetTotalsTickCount() % 4 == 0)
+	if (UArtilleryLibrary::GetTotalsTickCount(ArtilleryDispatch) % 4 == 0)
 	{
 		bool found = false;
-		FVector HereIAm = UArtilleryLibrary::implK2_GetLocation(InstanceData.KeyOf, found);
+		FVector HereIAm = UArtilleryLibrary::implK2_GetLocation(ArtilleryDispatch, InstanceData.KeyOf, found);
 
 		if (found && (HereIAm - location).Length()  < Tolerance * 2)
 		{
-			UBarrageDispatch* AreWeBarraging = UBarrageDispatch::SelfPtr;
-			UThistleBehavioralist* Behavioralist = UThistleBehavioralist::SelfPtr;
-			if (AreWeBarraging != nullptr && UThistleBehavioralist::SelfPtr)
+			UBarrageDispatch* AreWeBarraging = UBarrageDispatch::Get(Context.GetWorld());
+			UThistleBehavioralist* Behavioralist = UThistleBehavioralist::Get(Context.GetWorld());
+			if (AreWeBarraging != nullptr && Behavioralist)
 			{
-				FConservedTags tagc = UArtilleryLibrary::InternalTagsByKey(InstanceData.KeyOf, found);
+				FConservedTags tagc = UArtilleryLibrary::InternalTagsByKey(ArtilleryDispatch, InstanceData.KeyOf, found);
 				FVector destination = ( HereIAm - location).GetSafeNormal();
 				if (destination != FVector::ZeroVector && (HereIAm - location).Length()  < Tolerance * 1.1)
 				{

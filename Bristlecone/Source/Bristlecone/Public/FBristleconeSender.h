@@ -6,6 +6,7 @@
 #include "Interfaces/IPv4/IPv4Endpoint.h"
 
 #include "BristleconeCommonTypes.h"
+#include "HAL/Event.h"
 
 
 class FBristleconeSender : public FRunnable {

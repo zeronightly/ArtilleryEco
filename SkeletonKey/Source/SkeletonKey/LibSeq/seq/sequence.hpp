@@ -845,7 +845,6 @@ namespace seq
 
 					size_t saved_size = this->size;
 
-					try {
 						// Loop until the end
 						while (it != it_end) {
 
@@ -883,13 +882,7 @@ namespace seq
 							}
 							++it;
 						}
-					}
-					catch (...) {
-						// Update current node bounds in case of exception
-						node->start = static_cast<int>(bit_scan_forward_64(node->used));
-						node->end = static_cast<int>(bit_scan_reverse_64(node->used)) + 1;
-						throw;
-					}
+					
 
 					this->size = saved_size;
 
@@ -1112,17 +1105,10 @@ namespace seq
 		{
 			// Build chunk, might throw (which is fine)
 			last = make_chunk(last, static_cast<chunk_type*>(&d_data->end)); // specify chunk index if not dirty
-			try {
+
 				// construct object, might throw
 				construct_ptr(&last->front(), std::forward<Args>(args)...);
-			}
-			catch (...) {
-				// delete chunk
-				remove_node(last);
-				remove_free_node(last);
-				d_data->deallocate_chunk(last);
-				throw;
-			}
+			
 
 			// Finish
 			last->used = 1ULL;
@@ -1139,17 +1125,8 @@ namespace seq
 			first = make_chunk(static_cast<chunk_type*>(&d_data->end), first);
 			first->end = count;
 
-			try {
 				// construct object, might throw
 				construct_ptr(&first->back(), std::forward<Args>(args)...);
-			}
-			catch (...) {
-				// delete chunk
-				remove_node(first);
-				remove_free_node(first);
-				d_data->deallocate_chunk(first);
-				throw;
-			}
 
 			first->used = (1ULL << (count - 1));
 			first->start = first->end - 1;
@@ -1232,21 +1209,12 @@ namespace seq
 					remove_free_node(last);
 					last->used = full;
 
-					try {
 						// Fill last chunk, might throw
 						while (last->end != chunk_type::count) {
 							construct_ptr(last->buffer() + last->end, *other_it);
 							++last->end;
 							++other_it;
 						}
-					}
-					catch (...) {
-						// In case of exception, remove full chunk
-						remove_node(last);
-						destroy_node_elements(last);
-						d_data->deallocate_chunk(last);
-						throw;
-					}
 					d_data->size += chunk_type::count;
 				}
 				// Add remaining
@@ -1255,22 +1223,12 @@ namespace seq
 					last = make_chunk(last, static_cast<chunk_type*>(&d_data->end));
 					last->used = (1ULL << rem) - 1ULL;
 
-					try {
 						// Fill last chunk, might throw
 						while (last->end != static_cast<int>(rem)) {
 							construct_ptr(last->buffer() + last->end, *other_it);
 							++last->end;
 							++other_it;
 						}
-					}
-					catch (...) {
-						// In case of exception, remove full chunk
-						remove_node(last);
-						destroy_node_elements(last);
-						remove_free_node(last);
-						d_data->deallocate_chunk(last);
-						throw;
-					}
 					d_data->size += rem;
 				}
 			}
@@ -1762,20 +1720,11 @@ namespace seq
 					remove_free_node(last);
 					last->used = full;
 
-					try {
 						// Fill last chunk, might throw
 						while (last->end != chunk_type::count) {
 							helper.construct(last->buffer() + last->end);
 							++last->end;
 						}
-					}
-					catch (...) {
-						// In case of exception, remove full chunk
-						destroy_node_elements(last);
-						remove_node(last);
-						d_data->deallocate_chunk(last);
-						throw;
-					}
 					d_data->size += chunk_type::count;
 				}
 				// Add remaining
@@ -1784,21 +1733,12 @@ namespace seq
 					last = make_chunk(last, static_cast<chunk_type*>(&d_data->end));
 					last->used = (1ULL << rem) - 1ULL;
 
-					try {
 						// Fill last chunk, might throw
 						while (last->end != static_cast<int>(rem)) {
 							helper.construct(last->buffer() + last->end);
 							++last->end;
 						}
-					}
-					catch (...) {
-						// In case of exception, remove full chunk
-						destroy_node_elements(last);
-						remove_free_node(last);
-						remove_node(last);
-						d_data->deallocate_chunk(last);
-						throw;
-					}
+					
 					d_data->size += rem;
 				}
 			}
@@ -1888,20 +1828,11 @@ namespace seq
 					front->used = full;
 					front->start = front->end = chunk_type::count;
 
-					try {
 						while (front->start != 0) {
 							// Might throw, ok
 							helper.construct(front->buffer() + front->start - 1);
 							--front->start;
 						}
-					}
-					catch (...) {
-						// In case of exception, remove front chunk
-						destroy_node_elements(front);
-						remove_node(front);
-						d_data->deallocate_chunk(front);
-						throw;
-					}
 					d_data->size += chunk_type::count;
 				}
 				// Add remaining
@@ -1911,20 +1842,10 @@ namespace seq
 					front->start = front->end = chunk_type::count;
 					front->used = ((1ULL << rem) - 1ULL) << (chunk_type::count - rem);
 					size_type target = chunk_type::count - rem;
-					try {
 						while (front->start != static_cast<int>(target)) {
 							helper.construct(front->buffer() + front->start - 1);
 							--front->start;
 						}
-					}
-					catch (...) {
-						// In case of exception, remove front chunk
-						destroy_node_elements(front);
-						remove_free_node(front);
-						remove_node(front);
-						d_data->deallocate_chunk(front);
-						throw;
-					}
 					d_data->size += rem;
 				}
 			}

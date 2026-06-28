@@ -9,7 +9,7 @@
 class UBarrageColliderBase;
 
 /**
- * Optional custom anim instance. Exists mainly to expose thread-safe artilelry access for BP use
+ * Optional custom anim instance. Exists mainly to expose thread-safe artillery access for BP use
  */
 UCLASS()
 class ARTILLERYRUNTIME_API UArtilleryAnimInstance : public UAnimInstance 
@@ -24,5 +24,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FSkeletonKey MyParentObjectKey;
 	
+	// @todo this is a shared ptr that can die with GC and invoke a dtor at a VERY bad time
 	FBLet MyBarrageBody = nullptr;
 };

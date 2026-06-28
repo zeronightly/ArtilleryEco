@@ -1,0 +1,134 @@
+// GKS Hull performance benchmark
+// Compile: cl /std:c++20 /EHsc /O2 bench_gks_hull.cpp /Fe:bench_gks_hull.exe
+
+#include "gks_hull.h"
+#include <cstdio>
+#include <chrono>
+#include <random>
+#include <numeric>
+
+using Clock = std::chrono::high_resolution_clock;
+
+// Baseline: std::sort on atan2 keys + Graham scan (O(n log n))
+static std::vector<gks::Vec2> baseline_hull(const std::vector<gks::Vec2>& points) {
+    const size_t n = points.size();
+    if (n < 3) return points;
+
+    size_t anchor_idx = 0;
+    for (size_t i = 1; i < n; ++i) {
+        if (points[i].y < points[anchor_idx].y ||
+            (points[i].y == points[anchor_idx].y && points[i].x < points[anchor_idx].x))
+            anchor_idx = i;
+    }
+    gks::Vec2 anchor = points[anchor_idx];
+
+    struct AngleDist {
+        float angle;
+        float dist_sq;
+        uint32_t index;
+    };
+    std::vector<AngleDist> sorted;
+    sorted.reserve(n - 1);
+    for (size_t i = 0; i < n; ++i) {
+        if (i == anchor_idx) continue;
+        float dx = points[i].x - anchor.x;
+        float dy = points[i].y - anchor.y;
+        sorted.push_back({ std::atan2(dy, dx), dx*dx + dy*dy, static_cast<uint32_t>(i) });
+    }
+    std::sort(sorted.begin(), sorted.end(), [](const AngleDist& a, const AngleDist& b) {
+        if (a.angle != b.angle) return a.angle < b.angle;
+        return a.dist_sq < b.dist_sq;
+    });
+
+    std::vector<gks::Vec2> hull;
+    hull.reserve(n);
+    hull.push_back(anchor);
+    for (size_t i = 0; i < sorted.size(); ++i) {
+        gks::Vec2 pt = points[sorted[i].index];
+        while (hull.size() >= 2 &&
+               gks::ccw(hull[hull.size()-2], hull[hull.size()-1], pt) <= 0.0)
+            hull.pop_back();
+        hull.push_back(pt);
+    }
+    return hull;
+}
+
+struct BenchResult {
+    double gks_us;
+    double baseline_us;
+    size_t hull_size;
+};
+
+static BenchResult bench(const std::vector<gks::Vec2>& points, int iterations) {
+    // Warmup
+    for (int i = 0; i < 3; ++i) {
+        auto h1 = gks::compute_hull(points);
+        auto h2 = baseline_hull(points);
+        (void)h1; (void)h2;
+    }
+
+    // GKS (radix)
+    double gks_total = 0;
+    size_t hull_sz = 0;
+    for (int i = 0; i < iterations; ++i) {
+        auto t0 = Clock::now();
+        auto h = gks::compute_hull(points);
+        auto t1 = Clock::now();
+        gks_total += std::chrono::duration<double, std::micro>(t1 - t0).count();
+        hull_sz = h.size();
+    }
+
+    // Baseline (std::sort)
+    double base_total = 0;
+    for (int i = 0; i < iterations; ++i) {
+        auto t0 = Clock::now();
+        auto h = baseline_hull(points);
+        auto t1 = Clock::now();
+        base_total += std::chrono::duration<double, std::micro>(t1 - t0).count();
+    }
+
+    return { gks_total / iterations, base_total / iterations, hull_sz };
+}
+
+int main() {
+    std::mt19937 rng(42);
+
+    printf("%-10s  %12s  %12s  %8s  %5s\n",
+           "N", "GKS (us)", "std::sort", "ratio", "hull");
+    printf("--------------------------------------------------------------\n");
+
+    int sizes[] = { 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000, 500000 };
+
+    for (int N : sizes) {
+        // Uniform random in [-1000, 1000]
+        std::uniform_real_distribution<float> dist(-1000.f, 1000.f);
+        std::vector<gks::Vec2> pts(N);
+        for (auto& p : pts) { p.x = dist(rng); p.y = dist(rng); }
+
+        int iters = (N <= 1000) ? 5000 : (N <= 10000) ? 500 : (N <= 100000) ? 50 : 10;
+        auto r = bench(pts, iters);
+
+        printf("%-10d  %10.1f us  %10.1f us  %7.2fx  %5zu\n",
+               N, r.gks_us, r.baseline_us, r.baseline_us / r.gks_us, r.hull_size);
+    }
+
+    // Pathological: circle (all points on hull)
+    printf("\n--- All-on-hull (circle) ---\n");
+    printf("%-10s  %12s  %12s  %8s  %5s\n",
+           "N", "GKS (us)", "std::sort", "ratio", "hull");
+    printf("--------------------------------------------------------------\n");
+
+    for (int N : { 100, 1000, 10000, 100000 }) {
+        std::vector<gks::Vec2> pts(N);
+        for (int i = 0; i < N; ++i) {
+            float angle = 2.0f * 3.14159265f * i / N;
+            pts[i] = { std::cos(angle) * 500.f, std::sin(angle) * 500.f };
+        }
+        int iters = (N <= 1000) ? 5000 : (N <= 10000) ? 500 : 50;
+        auto r = bench(pts, iters);
+        printf("%-10d  %10.1f us  %10.1f us  %7.2fx  %5zu\n",
+               N, r.gks_us, r.baseline_us, r.baseline_us / r.gks_us, r.hull_size);
+    }
+
+    return 0;
+}

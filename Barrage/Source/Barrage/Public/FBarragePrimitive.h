@@ -12,6 +12,7 @@
 #define BARRAGE_DEBUG_ENABLED 0
 
 
+class FWorldSimOwner;
 //A Barrage shapelet accepts forces and transformations as though it were not managed by an evil secret machine
 //and this allows us to pretty much Do The Right Thing. I've chosen to actually hide the specific kind of shape as an
 //enum prop rather than a class parameter. The pack pragma makes me reluctant to use non-POD approaches.
@@ -65,17 +66,26 @@ public:
 	// worrying about the exact structure of our lifecycles. it is also used for pool and rollback handling,
 	// and the implementation will change as those come online in artillery.
 	uint32 tombstone = 0; //4b 
-	FBShape Me; //4b
+	FBShape Me = {}; //1b
+	
+	
+	uint8 bAlreadyDestroyed : 1 = false;
+	
+	FWorldSimOwner* WorldSim = nullptr;
 
-	FBarragePrimitive(FBarrageKey Into, FSkeletonKey OutOf)
+	FBarragePrimitive(FBarrageKey Into, FSkeletonKey OutOf, TNotNull<FWorldSimOwner*> InWorldSimOwner)
 	{
 		KeyIntoBarrage = Into;
 		KeyOutOfBarrage = OutOf;
 		tombstone = 0;
 		Me = Uninitialized;
+		WorldSim = InWorldSimOwner;
 	}
 
 	~FBarragePrimitive();
+	
+	bool DestroyPrimitive_Internal();
+	
 	//Note the use of shared pointers. Due to tombstoning, FBlets must always be used by reference.
 	//this is actually why they're called FBLets, as they're rented (or let) shapes that are also thus both shapelets and shape-lets.
 
@@ -113,7 +123,7 @@ public:
 	//because we should _never_ block the game thread. unfortunately, this means I can't provide the code to actually use
 	//this as part of jolt very easily at first, but I'll try to defactor whatever I built into a sample implementation for Barrage.
 	//This is unsafe to call except during the exact place it is currently called because it avoids the lifecycle management.
-	template<typename OwnerType, typename QueueType> static void TryUpdateTransformFromJolt(const FBarragePrimitive* Target, JPH::BodyID PassIn, TSharedPtr<OwnerType>& GameSimHoldOpen, TSharedPtr<QueueType>& HoldOpen,  uint64 Time);
+	template<typename OwnerType, typename QueueType> static void TryUpdateTransformFromJolt(const FBarragePrimitive* Target, JPH::BodyID& PassIn, const TSharedPtr<OwnerType>& GameSimHoldOpen, const TSharedPtr<QueueType>& HoldOpen,  uint64 Time);
 	static FVector3f GetCentroidPossiblyStale(FBLet Target);
 	static FVector3f GetPosition(FBLet Target);
 	static FVector3f GetVelocity(FBLet Target);
@@ -152,9 +162,6 @@ public:
 	static FVector3f GetCharacterGroundNormal(FBLet Target);
 
 	static void SetCharacterGravity(FVector3d InVector, FBLet Target);
-
-protected:
-	static inline UBarrageDispatch* GlobalBarrage = nullptr;
 };
 
 

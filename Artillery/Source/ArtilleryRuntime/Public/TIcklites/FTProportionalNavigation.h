@@ -231,7 +231,7 @@ public:
 
 	void TICKLITE_OnExpiration()
 	{
-		UArtilleryLibrary::TombstonePrimitive(MissileKey);
+		UArtilleryLibrary::TombstonePrimitive(ADispatch->DispatchOwner, MissileKey);
 	}
 };
 

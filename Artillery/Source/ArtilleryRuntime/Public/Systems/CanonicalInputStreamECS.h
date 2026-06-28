@@ -55,6 +55,21 @@ class ARTILLERYRUNTIME_API UCanonicalInputStreamECS : public UTickableWorldSubsy
 	GENERATED_BODY()
 
 public:
+	static UCanonicalInputStreamECS* Get(UWorld& World)
+	{
+		return World.GetSubsystem<UCanonicalInputStreamECS>();
+	}
+    
+	static UCanonicalInputStreamECS* Get(UObject* WorldContextObject) 
+	{
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+		if (ensure(World)) 
+		{
+			return UCanonicalInputStreamECS::Get(*World);
+		}
+
+		return nullptr;
+	}
 	constexpr static int OrdinateSeqKey = UBristleconeWorldSubsystem::OrdinateSeqKey + ORDIN::Step;
 	virtual bool RegistrationImplementation() override;
 	virtual void PostInitialize() override;
@@ -83,7 +98,6 @@ public:
 
 	ActorKey ActorByStream(InputStreamKey Stream);
 	InputStreamKey StreamByActor(ActorKey Stream);
-	static inline UCanonicalInputStreamECS* SelfPtr = nullptr;
 	InputStreamKey GetStreamForPlayer(PlayerKey);
 	bool registerPattern(IPM::CanonPattern ToBind, FActionPatternParams FCM_Owner_ActorParams);
 	bool removePattern(IPM::CanonPattern ToBind, FActionPatternParams FCM_Owner_ActorParams);

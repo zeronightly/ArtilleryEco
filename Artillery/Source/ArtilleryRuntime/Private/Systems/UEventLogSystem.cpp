@@ -4,8 +4,7 @@
 
 bool UEventLogSubsystem::RegistrationImplementation()
 {
-	UArtilleryDispatch::SelfPtr->SetEventLogSystem(this);
-	SelfPtr = this;
+	UArtilleryDispatch::Get(GetWorld())->SetEventLogSystem(this);
 	UE_LOG(LogTemp, Warning, TEXT("UEventLogSubsystem:Subsystem: Online"));
 	return true;
 }
@@ -26,7 +25,7 @@ void UEventLogSubsystem::ArtilleryTick()
 {
 	if (MyDispatch != nullptr)
 	{
-		int32 now = UArtilleryLibrary::GetTotalsTickCount();
+		int32 now = UArtilleryLibrary::GetTotalsTickCount(this->GetWorld());
 		// RemoveAllSwap does not maintain ordering but is the faster option
 		// For now we do not care about ordering
 		EventLog.RemoveAllSwap([now] (const FArtilleryEvent& Event)
@@ -38,7 +37,7 @@ void UEventLogSubsystem::ArtilleryTick()
 
 void UEventLogSubsystem::LogEvent(E_EventLogType LoggingType, FSkeletonKey LoggingKey, FSkeletonKey Other)
 {
-	int32 now = UArtilleryLibrary::GetTotalsTickCount();
+	int32 now = UArtilleryLibrary::GetTotalsTickCount(this->GetWorld());
 	FArtilleryEvent NewEvent;
 	NewEvent.LogTime = now;
 	NewEvent.ExpiryTime = now + (5 * 120);

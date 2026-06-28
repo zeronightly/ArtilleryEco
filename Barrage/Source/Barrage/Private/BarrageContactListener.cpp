@@ -5,8 +5,14 @@
 
 using namespace JPH;
 
+
+BarrageContactListener::BarrageContactListener(UBarrageDispatch* Barrage)
+{
+	MyBarrage = Barrage;
+}
+
 	ValidateResult BarrageContactListener::OnContactValidate(const Body& inBody1, const Body& inBody2, RVec3Arg inBaseOffset,
-												 const CollideShapeResult& inCollisionResult)
+                                                         const CollideShapeResult& inCollisionResult)
 	{
 		// Allows you to ignore a contact before it is created (using layers to not make objects collide is cheaper!)
 		return ValidateResult::AcceptAllContactsForThisBodyPair;
@@ -15,9 +21,9 @@ using namespace JPH;
 	void BarrageContactListener::OnContactAdded(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold,
 								ContactSettings& ioSettings)
 	{
-		if (UBarrageDispatch::SelfPtr)
+		if (MyBarrage)
 		{
-			UBarrageDispatch::SelfPtr->HandleContactAdded(inBody1, inBody2, inManifold, ioSettings);
+			MyBarrage->HandleContactAdded(inBody1, inBody2, inManifold, ioSettings);
 		}
 	}
 
@@ -41,13 +47,13 @@ void BarrageContactListener::OnContactAdded(const JPH::CharacterVirtual* inChara
 	JPH::CharacterContactSettings& ioSettings)
 {
 		TRACE_CPUPROFILER_EVENT_SCOPE_STR("Report Contact");
-		if (UBarrageDispatch::SelfPtr)
+		if (MyBarrage)
 		{
 			auto Ent1 = BarrageContactEntity(
-				UBarrageDispatch::SelfPtr->GenerateBarrageKeyFromBodyId(inCharacter->GetInnerBodyID()) 
+				MyBarrage->GenerateBarrageKeyFromBodyId(inCharacter->GetInnerBodyID()) 
 					); // hey so good chance this is our problem.
 			
-			auto Ent2 = BarrageContactEntity(UBarrageDispatch::SelfPtr->GenerateBarrageKeyFromBodyId(inBodyID2));
+			auto Ent2 = BarrageContactEntity(MyBarrage->GenerateBarrageKeyFromBodyId(inBodyID2));
 			//in general, almost nothing should push the character without explicitly invoking one of the apply forces functions.
 			//the exception RIGHT NOW is other non-enemy non-hitboxed movers, and terrain. this is in part because the player weighs 1 Unit
 			//to make the math for forces easier. That is Not Very Many Units.
@@ -59,7 +65,7 @@ void BarrageContactListener::OnContactAdded(const JPH::CharacterVirtual* inChara
 			{
 				ioSettings.mCanReceiveImpulses = false; // no push world plz.
 			}
-			UBarrageDispatch::SelfPtr->HandleContactAdded(Ent1, Ent2);
+			MyBarrage->HandleContactAdded(Ent1, Ent2);
 		}
 }
 
@@ -69,19 +75,19 @@ void BarrageContactListener::OnCharacterContactAdded(const JPH::CharacterVirtual
 	JPH::RVec3Arg inContactPosition, JPH::Vec3Arg inContactNormal, JPH::CharacterContactSettings& ioSettings)
 {
 		TRACE_CPUPROFILER_EVENT_SCOPE_STR("Report Contact");
-		if (UBarrageDispatch::SelfPtr)
+		if (MyBarrage)
 		{
-			auto Ent1 = BarrageContactEntity(UBarrageDispatch::SelfPtr->GenerateBarrageKeyFromBodyId(inCharacter->GetInnerBodyID()));
+			auto Ent1 = BarrageContactEntity(MyBarrage->GenerateBarrageKeyFromBodyId(inCharacter->GetInnerBodyID()));
 			
-			auto Ent2 = BarrageContactEntity(UBarrageDispatch::SelfPtr->GenerateBarrageKeyFromBodyId(inOtherCharacter->GetInnerBodyID()));
-			UBarrageDispatch::SelfPtr->HandleContactAdded(Ent1, Ent2);
+			auto Ent2 = BarrageContactEntity(MyBarrage->GenerateBarrageKeyFromBodyId(inOtherCharacter->GetInnerBodyID()));
+			MyBarrage->HandleContactAdded(Ent1, Ent2);
 		}  
 }
 
 void BarrageContactListener::OnContactRemoved(const SubShapeIDPair& inSubShapePair)
 	{
-		if (UBarrageDispatch::SelfPtr)
+		if (MyBarrage)
 		{
-			UBarrageDispatch::SelfPtr->HandleContactRemoved(inSubShapePair);
+			MyBarrage->HandleContactRemoved(inSubShapePair);
 		}
 	}

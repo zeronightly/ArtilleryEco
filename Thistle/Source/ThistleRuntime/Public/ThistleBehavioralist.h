@@ -38,6 +38,21 @@ class THISTLERUNTIME_API UThistleBehavioralist : public UTickableWorldSubsystem,
 	GENERATED_BODY()
 
 public:
+	static UThistleBehavioralist* Get(UWorld& World)
+	{
+		return World.GetSubsystem<UThistleBehavioralist>();
+	}
+    
+	static UThistleBehavioralist* Get(UObject* WorldContextObject) 
+	{
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+		if (ensure(World)) 
+		{
+			return UThistleBehavioralist::Get(*World);
+		}
+
+		return nullptr;
+	}
 	friend class UThistleDispatch;
 	static constexpr uint8_t WIDE_CADENCE = 8;
 	
@@ -58,7 +73,6 @@ public:
 	//that don't HAVE lifecycles here.
 	using Deadliner = TMap<int32, DeadlineArray>;
 	
-	static inline UThistleBehavioralist* SelfPtr = nullptr;
 	
 protected:
 	int32 DeadlinerTime = 0;
@@ -86,15 +100,17 @@ public:
 	{
 		FTagRegistration()
 		{
+			
 		}
-
+		TObjectPtr<UThistleBehavioralist> MyThistleBehavioralist;
+		
 		virtual bool RegistrationImplementation() override
 		{
-			if (UThistleBehavioralist::SelfPtr)
+			if (MyThistleBehavioralist)
 			{
-				UThistleBehavioralist::SelfPtr->BehavioralistTagState->Initialize(
-					UThistleBehavioralist::SelfPtr->FalseActorKey,
-					UThistleBehavioralist::SelfPtr->MyDispatch);
+				MyThistleBehavioralist->BehavioralistTagState->Initialize(
+					MyThistleBehavioralist->FalseActorKey,
+					MyThistleBehavioralist->MyDispatch);
 				return true;
 			}
 			return false;
@@ -113,9 +129,9 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override;
 
-	static bool AttemptInvokePathingOnKey(FSkeletonKey Target, FVector Location);
-	static bool AttemptAimFromKey(FSkeletonKey From, FRotator TargetRotation);
-	static bool AttemptAttackFromKey(FSkeletonKey From);
+	static bool AttemptInvokePathingOnKey(UThistleBehavioralist* Behavioralist,FSkeletonKey Target, FVector Location);
+	static bool AttemptAimFromKey(UThistleBehavioralist* Behavioralist,FSkeletonKey From, FRotator TargetRotation);
+	static bool AttemptAttackFromKey(UThistleBehavioralist* Behavioralist,FSkeletonKey From);
 	void RegisterEnemy(const ActorKey NewKey, uint64_t Stamp);
 
 	UFUNCTION(BlueprintCallable, meta=(DefaultToSelf="RallyRegistering"))
@@ -163,8 +179,11 @@ public:
 	void RunAILocomotions() const;
 	void RunStateTrees(uint64_t CurrentTck) const;
 	bool IsPlayerInCombat() const;
+	
+private:
 	ActorKeyArray CurrentEnemies;
-
+	ActorKeyArray DeadEnemies;
+	public:
 	void ProcessDamageEvents();
 
 	using RallyMap = TMap<FSkeletonKey, TObjectPtr<AGenericSmartObject>>;
@@ -174,13 +193,18 @@ public:
 	TMap<FSkeletonKey, TObjectPtr<AGenericSmartObject>> ManagedRallyPointSmartObjects;
 	UPROPERTY(BlueprintReadOnly, VisibleAnywhere)
 	TMap<FSkeletonKey, TObjectPtr<AActor>> ManagedPatrolZones;
-	ActorKeyArray DeadEnemies;
 	
 	UPROPERTY()
 	TObjectPtr<USmartObjectSubsystem> SmartObjectSubsystem;
 	
 	UPROPERTY()
 	TObjectPtr<UArtilleryDispatch> MyDispatch;
+	
+	UPROPERTY()
+	TObjectPtr<UTransformDispatch> TransformDispatch;
+	
+	UPROPERTY()
+	TObjectPtr<UBarrageDispatch> Physics;
 
 	void OnPhysicsCollision(const BarrageContactEvent& ContactEvent)
 	{

@@ -698,11 +698,6 @@ namespace sketch
 				auto b(std::move(b_));
 			}
 
-			SuperMinHash(std::string s): a_(0), i_(0), m_(0), seed_(0), bbits_(0)
-			{
-				throw ("SuperMinHash can't be made from std::string");
-			}
-
 			void reset()
 			{
 				std::fill(p_.begin(), p_.end(), 0);
@@ -906,9 +901,13 @@ namespace sketch
 				b_(b), div_(core_.size()), hf_(std::forward<Args>(args)...)
 			{
 				assert(core_.size() % 64 == 0);
-				if (b_ < 1 || b_ > 64)
+				if (b_ < 1)
 				{
-					throw std::invalid_argument("b must be >= 1 and <= 64");
+					b_ = 1;
+				}
+				if (b_ > 64)
+				{
+					b_ = 64;// the alternative is a numerical error and possible crash.
 				}
 			}
 
@@ -1086,7 +1085,7 @@ namespace sketch
 			{
 				if (b_ + PartitionBits > sizeof(T) * CHAR_BIT)
 				{
-					throw std::runtime_error("oops");
+					ensureMsgf(false, TEXT("This will cause a buffer overflow."));
 				}
 			}
 
@@ -1120,7 +1119,8 @@ namespace sketch
 				}
 				if (p > PartitionBits)
 				{
-					throw std::invalid_argument("Can't compress a sketch to a larger size");
+					ensure("Can't unhash something. This would produce a larger size than what is passed in.");
+					return *this;
 				}
 				BBitMinHasher ret(p, b);
 				const T increment = (std::numeric_limits<T>::max() >> PartitionBits) + 1;
@@ -1323,7 +1323,6 @@ namespace sketch
 						}
 						return hll::detail::ertl_ml_estimate(arr, PartitionBits, sizeof(T) * CHAR_BIT - PartitionBits, 0);
 					}
-				default: throw std::runtime_error("Invalid MinHash cardinality method.");
 				}
 				// ReSharper disable once CppUnreachableCode
 				return sum;
@@ -1333,14 +1332,7 @@ namespace sketch
 
 			BBitMinHasher& operator+=(const BBitMinHasher& o)
 			{
-				if (size() != o.size())
-				{
-					throw std::runtime_error("Wrong sizes");
-				}
-				if (size() == 0)
-				{
-					throw std::runtime_error("Empty sketches");
-				}
+
 				std::fprintf(stderr, "Size: %zu\n", size());
 				size_t i = 0;
 #if __AVX512F__
@@ -2045,8 +2037,7 @@ namespace sketch
 			}
 			else
 			{
-				throw; // we ONLY support power of two b. Our use case IS a power of two, and always will be.
-				//and there were some bugs like negative bitshifts in the packing code.
+				ensureMsgf(false, TEXT("Only powers of two are supported. What are you doing?"));
 			}
 			return ret;
 		}
@@ -2077,7 +2068,6 @@ namespace sketch
 			}
 			else
 			{
-				throw std::runtime_error("FinalDivBBitMinHash currently requires at exactly 64 minimizers.");
 			}
 			return ret;
 		}
@@ -2166,10 +2156,6 @@ namespace sketch
 			// Only finished for uint32_t currently
 			HistResult histogram_sums(const FinalCountingBBitMinHash& o) const
 			{
-				if (!std::is_same_v<CountingType, uint32_t>)
-				{
-					throw ("histogram_sums only available for uint32_t");
-				}
 
 				const uint64_t *p1 = core_.data(), *pe = core_.data() + core_.size(), *p2 = o.core_.data();
 				assert(b_ <= 64 || !std::fprintf(stderr, "b_: %u\n", b_) || (7 < 64));

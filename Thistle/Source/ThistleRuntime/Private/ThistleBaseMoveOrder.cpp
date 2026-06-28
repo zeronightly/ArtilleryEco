@@ -10,17 +10,17 @@ EStateTreeRunStatus FMoveOrder::AttemptMovePath(
 	FVector HereIAm) const
 {
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
-	auto AreWeBarraging = UBarrageDispatch::SelfPtr;
-
-	if (AreWeBarraging != nullptr && UThistleBehavioralist::SelfPtr)
+	UBarrageDispatch* AreWeBarraging = UBarrageDispatch::Get(Context.GetWorld());
+	UThistleBehavioralist* Behavioralist = UThistleBehavioralist::Get(Context.GetWorld());
+	if (AreWeBarraging != nullptr && Behavioralist)
 	{
 		bool found = false;
-		FConservedTags tagc = UArtilleryLibrary::InternalTagsByKey(InstanceData.KeyOf, found);
+		FConservedTags tagc = UArtilleryLibrary::InternalTagsByKey(UArtilleryDispatch::Get(Context.GetWorld()), InstanceData.KeyOf, found);
 		if (found)
 		{
 			tagc->Remove(TAG_Orders_Move_Needed);
 		}
-		UThistleBehavioralist::SelfPtr->BounceTag(InstanceData.KeyOf,TAG_Orders_Move_Needed,UThistleBehavioralist::DelayBetweenMoveOrders);
+		Behavioralist->BounceTag(InstanceData.KeyOf,TAG_Orders_Move_Needed,UThistleBehavioralist::DelayBetweenMoveOrders);
 
 		if ((HereIAm - location).Length() < FMath::Max(0.01f, Tolerance))
 		{
@@ -31,7 +31,7 @@ EStateTreeRunStatus FMoveOrder::AttemptMovePath(
 			return EStateTreeRunStatus::Succeeded;
 		}
 
-		if (UThistleBehavioralist::AttemptInvokePathingOnKey(InstanceData.KeyOf, location))
+		if (UThistleBehavioralist::AttemptInvokePathingOnKey(UThistleBehavioralist::Get(Context.GetWorld()), InstanceData.KeyOf, location))
 		{
 			return EStateTreeRunStatus::Succeeded;
 		}
@@ -43,7 +43,7 @@ EStateTreeRunStatus FMoveOrder::Tick(FStateTreeExecutionContext& Context, const 
 {
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 	bool Shuck = false;
-	FVector location = InstanceData.ShuckPoi(Shuck);
+	FVector location = InstanceData.ShuckPoi(Context,Shuck);
 	if (!Shuck)
 	{
 		return EStateTreeRunStatus::Failed;
@@ -51,7 +51,7 @@ EStateTreeRunStatus FMoveOrder::Tick(FStateTreeExecutionContext& Context, const 
 	//run on cadence.
 
 	bool found = false;
-	FVector HereIAm = UArtilleryLibrary::implK2_GetLocation(InstanceData.KeyOf, found);
+	FVector HereIAm = UArtilleryLibrary::implK2_GetLocation(UArtilleryDispatch::Get(Context.GetWorld()), InstanceData.KeyOf, found);
 	if (found && (HereIAm - location).Length() <= Tolerance)
 	{
 		return EStateTreeRunStatus::Succeeded;

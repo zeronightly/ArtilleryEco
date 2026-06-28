@@ -52,7 +52,7 @@ public:
 	float GetStickRightY();
 	int32_t GetStickRightYAsACSN();
 
-	bool GetInputAction(uint8 inputActionIndex);
+	bool GetInputActionByIndex(uint8 inputActionIndex);
 	uint32 GetButtonsAndEventsFlat();
 private:
 	

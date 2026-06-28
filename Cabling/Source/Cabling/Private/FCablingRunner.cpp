@@ -136,7 +136,10 @@ uint64_t FCabling::FromGamePadState(GameInputGamepadState state)
 	boxing.buttons = static_cast<uint32_t>(state.buttons); //strikingly, there's no paddle field.
 	boxing.buttons.set(12, (state.leftTrigger > 0.55)); //check the bitfield.
 	boxing.buttons.set(13, (state.rightTrigger > 0.55));
+	
 
+	
+	
 	bool HasFlick = MatchingTools::FlickDetect<FlickBuffer*>(
 		boxing.GetStickLeftXAsACSN(),
 		boxing.GetStickLeftYAsACSN(),
@@ -147,11 +150,32 @@ uint64_t FCabling::FromGamePadState(GameInputGamepadState state)
 	{
 		boxing.buttons.set(14, true);
 	}
-
+	if (state.buttons & GameInputGamepadDPadUp)
+	{
+		boxing.ly = -999;
+	}
+	else if (state.buttons & GameInputGamepadDPadDown)
+	{
+		boxing.ly = 999;
+	}
+	
+	if (state.buttons & GameInputGamepadDPadLeft)
+	{
+		boxing.lx = 999;
+	}
+	else if (state.buttons & GameInputGamepadDPadRight)
+	{
+		boxing.lx = -999;
+	}
+	
 	//we'll need a little damping over these which is why they're classed as virtual.
 	boxing.buttons.set(15, (state.buttons & GameInputGamepadLeftThumbstick) != 0);
 	
 	boxing.buttons.set(16, (state.buttons & GameInputGamepadRightThumbstick) != 0);
+	// UE_LOG(
+	// LogTemp,
+	// Warning,
+	// TEXT(" %hs"), boxing.buttons.to_string().c_str());
 	this->RingForGamepadKeybinds.add(GuessedInputCount, boxing);
 	uint64_t currentRead = boxing.PackImpl();
 
@@ -165,8 +189,27 @@ uint64_t FCabling::FromGamePadState(GameInputGamepadState state)
 	return currentRead;
 }
 
-//Sets Sent if prip
-uint64_t FCabling::GamepadState(IGameInputReading* reading)
+
+// Stateless mouse-look shaping. Maps one poll's raw mouse count delta (from GameInput) to a
+// normalized stick deflection in [-1, 1], scaled linearly by the player's sensitivity. This is
+// the whole of the ported "mouse look feel": relative counts in, proportional deflection out,
+// every count registering. Deliberately excluded, because they live elsewhere: the deadzone
+// (IntegerizedStick applies 0.1875), the per-count angular factor and pitch clamp (the
+// downstream look pipeline), and aim assist (a higher layer). Pure function: no state, no globals.
+float FCabling::ShapeMouseAxisToDeflection(float Delta, double sensitivity)
+{
+	if (Delta == 0.0f || sensitivity <= 0.0)
+	{
+		return 0.0f;
+	}
+	const double magnitude = FMath::Min(
+		FMath::Abs(static_cast<double>(Delta)) * sensitivity / Cabling::MouseTicksToSaturation,
+		1.0);
+	return static_cast<float>(Delta > 0.0f ? magnitude : -magnitude);
+}
+
+//fiddles the state around and ensures a couple things. this used to do a LOT more, but it's still nice to hide this obnoxiousness.
+uint64_t FCabling::CheckGamepadState(IGameInputReading* reading)
 {
 	// If no device has been assigned to g_gamepad yet, set it
 	// to the first device we receive input from. (This must be
@@ -185,10 +228,6 @@ uint32 FCabling::Run()
 	HRESULT gameInputSpunUp = GameInputCreate(&g_gameInput);
 	IGameInputDevice* g_gamepad = nullptr;
 	IGameInputReading* reading;
-	constexpr static float LowGainMouse[5] = {0, 0.33, 0.44, 0.55, .75};
-	constexpr static float MidGainMouse[9] = {0, 0.25, 0.35, 0.45, .55, .6, .65, 0.70, .8};
-	
-	constexpr static float HighGainMouse[12] = {0, 0.18, 0.22, 0.26, 0.30, 0.345, 0.44, .54, .64, .72, 0.72, .8};
 
 
 	GameInputKeyState states[16] = {{0, 0, 0, false}}; //the first 0,0 indicates the end of valid data.
@@ -218,7 +257,6 @@ uint32 FCabling::Run()
 
 	constexpr auto HalfStep = std::chrono::microseconds(Period / 2);
 	const uint64_t BlankGamepad = FromGamePadState(GameInputGamepadState());
-	const uint64_t BlankKeyboard = FromKeyboardAndMouseState(16, states, {}, 0, 0);
 
 	timeBeginPeriod(1);
 
@@ -227,8 +265,6 @@ uint32 FCabling::Run()
 	//https://learn.microsoft.com/en-us/gaming/gdk/_content/gc/input/advanced/input-keyboard-mouse will be fun
 	//https://handmade.network/forums/t/8710-using_microsoft_gameinput_api_with_multiple_controllers#29361
 	//Looks like PS4/PS5 won't be too bad, just gotta watch out for Fun Device ID changes.
-	double adaptX = 1;
-	double adaptY = 1;
 	while (running)
 	{
 		if (lastPollTime + Period <= lsbTime)
@@ -257,40 +293,21 @@ uint32 FCabling::Run()
 				{
 					float delX = (float)mouseState.positionX - PrevMouseX;
 					float delY = (float)mouseState.positionY - PrevMouseY;
-					auto absX = FMath::CeilToInt(abs(delX));
-					auto absY = FMath::CeilToInt(abs(delY));
-					adaptX = FMath::Max(adaptX, absX);
-					adaptY = FMath::Max(adaptY, absY);
-					if (adaptX < 5 && adaptY < 5) //|| (absX + absY) < 2)
+
+					if (MousePrimed)
 					{
-						MouseXDelta = FMath::Sign(delX) * LowGainMouse[absX]; 
-						MouseYDelta = -FMath::Sign(delY) * LowGainMouse[absY];
-					}
-					else if (adaptX < 9 && adaptY < 9)
-					{
-						MouseXDelta = FMath::Sign(delX) * MidGainMouse[absX]; 
-						MouseYDelta = -FMath::Sign(delY) * MidGainMouse[absY];
-					}
-					else if (adaptX < 13 && adaptY < 13)
-					{
-						MouseXDelta = FMath::Sign(delX) * HighGainMouse[absX]; 
-						MouseYDelta = -FMath::Sign(delY) * HighGainMouse[absY];
-					}
-					else if (adaptX < 37 && adaptY < 37)
-					{
-						MouseXDelta = FMath::Sign(delX) * HighGainMouse[absX/3]; 
-						MouseYDelta = -FMath::Sign(delY) * HighGainMouse[absY/4];
-					}
-					else
-					{
-						MouseXDelta = FMath::Sign(delX) * FMath::Min(absX/58.0, .9); 
-						MouseYDelta = -FMath::Sign(delY) *  FMath::Min(absY/67.0, .8);
+						MouseXDelta = ShapeMouseAxisToDeflection(delX,  Cabling::DefaultMouseSensitivityX);
+						// GameInput Y increases downward; negate so moving the mouse up looks up.
+						MouseYDelta = -ShapeMouseAxisToDeflection(delY, Cabling::DefaultMouseSensitivityY);
+						if (InvertMouseLookY)
+						{
+							MouseYDelta = -MouseYDelta;
+						}
 					}
 
 					PrevMouseX = mouseState.positionX;
 					PrevMouseY = mouseState.positionY;
-					adaptX -= 2;
-					adaptY -= 2;
+					MousePrimed = true;
 				}
 
 				reading->Release();
@@ -316,19 +333,17 @@ uint32 FCabling::Run()
 				{
 					reading->GetDevice(&g_gamepad);
 				}
-				GamepadCurrentRead = GamepadState(reading);
+				GamepadCurrentRead = CheckGamepadState(reading);
 
 				reading->Release();
 			}
-			else if (g_gamepad != nullptr)
-			// if gamepad read failed but a gamepad exists, we're in a failed state.
+			else if (g_gamepad != nullptr) // if gamepad read failed but a gamepad exists, we're in a failed state.
 			{
 				g_gamepad->Release(); //release it, we'll reacquire it on the next pass.
 				g_gamepad = nullptr;
 			}
-
-			Sent = SendNew(Sent, PriorReadingKeyboard, KeyboardCurrentRead);
 			Sent = SendNew(Sent, PriorReadingGamepad, GamepadCurrentRead);
+			Sent = SendNew(Sent, PriorReadingKeyboard, KeyboardCurrentRead);
 			if (GamepadCurrentRead != BlankGamepad)
 			{
 				Sent = SendIfWindowEdge(Sent, TickCounter, GamepadCurrentRead, sendHertzFactor);
@@ -353,7 +368,7 @@ uint32 FCabling::Run()
 				long long now = std::chrono::steady_clock::now().time_since_epoch().count();
 				UE_LOG(
 					LogTemp,
-					Display,
+					VeryVerbose,
 					TEXT("Cabling hertz cycled: %lld against lsb %lld with last poll as %lld"),
 					now, static_cast<long long>(lsbTime), static_cast<long long>(lastPollTime));
 			}
@@ -380,10 +395,6 @@ uint32 FCabling::Run()
 		{
 			lastPollTime = lsbTime;
 		}
-	}
-	if (g_gamepad)
-	{
-		g_gamepad->Release();
 	}
 	if (g_gameInput)
 	{

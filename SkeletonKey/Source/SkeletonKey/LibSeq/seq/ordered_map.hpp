@@ -295,19 +295,13 @@ namespace seq
 				// Rehash the table for given mask value.
 				// The old table is dropped before creating the new one, avoiding memory peaks.
 				// Do not check for potential duplicate values.
-
-				try {
+				
 					free_buckets(d_buckets);
 					d_buckets = null_node();
 					d_next_target = d_hash_mask = d_hash_len = 0;
 					d_max_dist = 1;
 					d_buckets = make_buckets((new_hash_mask + 1ULL));
-				}
-				catch (...) {
-					// mark as dirty
-					mark_dirty();
-					throw;
-				}
+
 
 				size_t hash, index;
 				size_t hmask = new_hash_mask;
@@ -367,17 +361,11 @@ namespace seq
 				// The old table is dropped before creating the new one, avoiding memory peaks.
 				// Check for potential duplicate values, and erase duplicates from the sequence object in a stable way.
 
-				try {
 					free_buckets(d_buckets);
 					d_buckets = null_node();
 					d_next_target = d_hash_mask = d_hash_len = 0;
 					d_max_dist = 1;
 					d_buckets = make_buckets((new_hash_mask + 1ULL));
-				}
-				catch (...) {
-					mark_dirty();
-					throw;
-				}
 
 				size_t hash, index, dist;
 				size_t bsize = new_hash_mask + 1ULL;

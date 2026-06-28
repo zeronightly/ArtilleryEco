@@ -89,6 +89,10 @@ public:
 	{
 		return In / 200.0; 
 	}
+	static FVector3d FromJoltCoordinatesFakePrecision(JPH::Vec3 In)
+	{
+		return FVector3d(In[0] * 100.0, In[2] * 100.0, In[1] * 100.0); // this looks _wrong_.
+	}
 	
 	static FVector3f FromJoltCoordinates(JPH::Vec3 In)
 	{

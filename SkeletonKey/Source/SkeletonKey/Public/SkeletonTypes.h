@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <sstream>
+
 #include "skeletonize.h"
 #include "Containers/CircularQueue.h"
 #include <thread>
@@ -42,6 +44,22 @@ public:
 		return FSkeletonKey();
 	}
 
+	std::string toHexString() {
+		std::ostringstream oss;
+		oss << std::hex << Obj;
+		return oss.str();
+	}
+
+	
+	FString PrettyPrint() const
+	{
+		std::ostringstream oss;
+		oss << "Type " << std::hex << (GET_SK_TYPE(Obj ) >> 60)
+		<< " Meta " << std::hex << ((Obj & SFIX_MaskForMetaBits) >> 32)
+		<< " Hash " << std::hex << static_cast<uint32>(Obj);
+		return FString(oss.str().c_str());
+	}
+	
 	static bool IsValid(const FSkeletonKey& Other)
 	{
 		return Other != FSkeletonKey::Invalid();
@@ -91,13 +109,18 @@ public:
 	//two, some key types may be notched by default, which would allow you to extract the meta value and use it directly as a key
 	//this gives us a limited hierarchical mechanism, but it's actually used mostly to avoid needing reverse lookups. after all,
 	//the parent key could be any key you needed to store, I suppose. if we see a lot of that, I'll rename the param.
-	static FSkeletonKey GenerateDependentKey(uint64_t parent, uint32_t localunique, uint64_t type = SKELLY::SFIX_ART_FACT)
+	static FSkeletonKey GenerateDependentKey(uint64_t parent, uint32_t localunique, uint64_t type = SKELLY::SFIX_ItemArchetype)
 	{
-		auto ret = parent & SKELLY::SFIX_KEYTOMETA;
+		auto ret = parent & SKELLY::SFIX_NotchKeyForMetaUse;
 		ret = (ret << 32) | localunique;
 		ret = FORGE_SKELETON_KEY(ret, type); // I forgot this and lost rather a lot of time.
 		return FSkeletonKey(ret);
 	};
+	
+	uint64_t GetType() const 
+	{
+		return GET_SK_TYPE(*this);
+	}
 };
 
 template<>
@@ -126,12 +149,12 @@ public:
 		//this doesn't seem like it should work, but because the SFIX bit patterns are intentionally asym
 		//we actually do reclaim a bit of randomness.
 		Obj += rhs; 
-		Obj = FORGE_SKELETON_KEY(Obj, SKELLY::SFIX_ART_ACTS);
+		Obj = FORGE_SKELETON_KEY(Obj, SKELLY::SFIX_ActorOrActorlike);
 	}
 	
 	explicit ActorKey(uint64 ObjIn)
 	{
-		Obj=FORGE_SKELETON_KEY(ObjIn, SKELLY::SFIX_ART_ACTS);
+		Obj=FORGE_SKELETON_KEY(ObjIn, SKELLY::SFIX_ActorOrActorlike);
 	}
 	
 	operator uint64() const {return Obj;};
@@ -145,7 +168,7 @@ public:
 	
 	ActorKey& operator=(const uint64 rhs) {
 		//should be idempotent.
-		Obj = FORGE_SKELETON_KEY(rhs, SKELLY::SFIX_ART_ACTS);
+		Obj = FORGE_SKELETON_KEY(rhs, SKELLY::SFIX_ActorOrActorlike);
 		return *this;
 	}
 	
@@ -156,14 +179,14 @@ public:
 		//this doesn't seem like it should work, but because the SFIX bit patterns are intentionally asym
 		//we actually do reclaim a bit of randomness.
 		Obj |= rhs; 
-		Obj = FORGE_SKELETON_KEY(Obj, SKELLY::SFIX_ART_ACTS);
+		Obj = FORGE_SKELETON_KEY(Obj, SKELLY::SFIX_ActorOrActorlike);
 		return *this;
 	}
 	
 	ActorKey& operator=(const ActorKey& rhs) {
 		//should be idempotent.
 		if (this != &rhs) {
-			Obj = FORGE_SKELETON_KEY(rhs.Obj, SKELLY::SFIX_ART_ACTS);
+			Obj = FORGE_SKELETON_KEY(rhs.Obj, SKELLY::SFIX_ActorOrActorlike);
 		}
 		return *this;
 	}
@@ -175,14 +198,14 @@ public:
 		{
 			UE_LOG(LogTemp, Warning, TEXT("%llu is a bonekey and converting it to an actor key is not a legal operation."), rhs.Obj);
 			Obj = 0;
-		} else if((GunInstance_Infix & rhs.Obj) == GunInstance_Infix)
+		} else if((SFIX_GunOrAbilityInstance & rhs.Obj) == SFIX_GunOrAbilityInstance)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("%llu is a GunInstance and converting it to an actor key is not a legal operation."), rhs.Obj);
 			Obj = 0;
 		}
 		else
 		{
-			Obj = FORGE_SKELETON_KEY(rhs.Obj, SKELLY::SFIX_ART_ACTS);
+			Obj = FORGE_SKELETON_KEY(rhs.Obj, SKELLY::SFIX_ActorOrActorlike);
 		}
 		return *this;
 	}
@@ -191,6 +214,15 @@ public:
 	// and down to bonekey. The reverse is not permitted at all, as bonekey offers fewer guarantees than actorkey.
 	ActorKey& operator=(const FBoneKey& rhs) = delete;
 
+	FString PrettyPrint() const
+	{
+		std::ostringstream oss;
+		oss << "Type " << std::hex << (GET_SK_TYPE(Obj ) >> 60)
+		<< " Meta " << std::hex << ((Obj & SFIX_MaskForMetaBits) >> 32)
+		<< " Hash " << std::hex << static_cast<uint32>(Obj);
+		return FString(oss.str().c_str());
+	}
+	
 	static ActorKey Invalid() { return ActorKey(); }
 };
 static bool operator<(ActorKey const& lhs, FSkeletonKey const& rhs) {
@@ -202,7 +234,7 @@ inline FSkeletonKey::operator ActorKey() const { return ActorKey(Obj); }
 //FOR LEGACY REASONS, this applies the skeletonization.
 inline FSkeletonKey& FSkeletonKey::operator=(const ActorKey& rhs)
 {
-	Obj = FORGE_SKELETON_KEY(rhs.Obj, SKELLY::SFIX_ART_ACTS);
+	Obj = FORGE_SKELETON_KEY(rhs.Obj, SKELLY::SFIX_ActorOrActorlike);
 	return *this;
 }
 
@@ -335,67 +367,6 @@ inline FSkeletonKey& FSkeletonKey::operator=(const FBoneKey& rhs)
 	return *this;
 }
 
-//Constellations represent entities of entities, and are a fully privileged skeleton key associated with a
-//relationship attribute map. This is used for describing the current state of a player, for example.
-USTRUCT(BlueprintType)
-struct SKELETONKEY_API FConstellationKey
-{
-	GENERATED_BODY()
-public:
-	uint64_t Obj;
-	
-	explicit FConstellationKey()
-	{
-		//THIS WILL REGISTER AS NOT AN OBJECT KEY PER SKELETONIZE (SFIX_NONE)
-		Obj = 0;
-	}
-	
-	explicit FConstellationKey(uint64 ObjIn)
-	{
-		Obj = FORGE_SKELETON_KEY(ObjIn, SKELLY::SFIX_STELLAR);
-	}
-
-	static FSkeletonKey Invalid()
-	{
-		return FSkeletonKey();
-	}
-
-	bool IsValid(const FSkeletonKey& Other) const
-	{
-		return Other != FSkeletonKey::Invalid();
-	}
-	
-	operator uint64() const {return Obj;};
-	
-	friend uint32 GetTypeHash(const FConstellationKey& Other)
-	{
-		return FMMM::FastHash6432(Other.Obj);
-	}
-	
-	FConstellationKey& operator=(const FConstellationKey& rhs) {
-		if (this != &rhs) {
-			Obj = FORGE_SKELETON_KEY(rhs.Obj, SKELLY::SFIX_STELLAR);
-		}
-		return *this;
-	}
-	
-	// you cannot cross the typetree here. if you wish to do this, you must explicitly discard by going up to skeletonkey
-	// and down to bonekey. The reverse is not permitted at all, as bonekey offers fewer guarantees than actorkey.
-	FConstellationKey& operator=(const ActorKey& rhs) = delete;
-
-	FConstellationKey& operator=(const uint64 rhs) {
-		Obj = FORGE_SKELETON_KEY(rhs, SKELLY::SFIX_STELLAR);
-		return *this;
-	}
-};
-
-//YOU CANNOT ESCAPE YOUR BONINESS.
-inline FSkeletonKey& FSkeletonKey::operator=(const FConstellationKey& rhs)
-{
-	Obj = FORGE_SKELETON_KEY(rhs.Obj, SKELLY::SFIX_STELLAR);
-	return *this;
-}
-
 
 
 
@@ -422,15 +393,33 @@ public:
 	explicit FGunInstanceKey(const unsigned int rhs) {
 		Obj = 0;
 		Obj |= FMMM::FastHash32(rhs); //en-bloody-sure that's hashed
-		Obj &= SKELLY::SFIX_KEYTOMETA; //notch the key. a true hash can lose any bit without losing validity.
-		Obj = FORGE_SKELETON_KEY(Obj, GunInstance_Infix);
+		Obj &= SKELLY::SFIX_NotchKeyForMetaUse; //notch the key. a true hash can lose any bit without losing validity.
+		Obj = FORGE_SKELETON_KEY(Obj, SFIX_GunOrAbilityInstance);
 	}
 	
 	explicit FGunInstanceKey(FSkeletonKey ObjIn)
 	{
-		if((GunInstance_Infix & ObjIn) == GunInstance_Infix)
+		//replaced old check with an exact bitwise check. First we pull only the bits in question, then we xor.
+		//only an exact match produces 0.
+		if(((SFIX_GunOrAbilityInstance & ObjIn) ^ SFIX_GunOrAbilityInstance) == 0)
 		{
-			Obj=FORGE_SKELETON_KEY(ObjIn.Obj, GunInstance_Infix);
+			Obj=FORGE_SKELETON_KEY(ObjIn.Obj, SFIX_GunOrAbilityInstance);
+		}
+		else
+		{
+
+			//UE_LOG(LogTemp, Error, TEXT("%llu is NOT GunInstance and converting it to a gun instance key is not a legal operation."), ObjIn.Obj);
+			Obj = 0;
+		}
+	}
+	
+	
+	explicit FGunInstanceKey(FSkeletonKey ObjIn, FSkeletonKey Owner)
+	{
+		if(((SFIX_GunOrAbilityInstance & ObjIn) ^ SFIX_GunOrAbilityInstance) == 0)
+		{
+			
+			Obj=SFIX_ImprintKeyDependency(Owner, ObjIn, SFIX_GunOrAbilityInstance);
 		}
 		else
 		{
@@ -451,7 +440,7 @@ public:
 	
 	FGunInstanceKey& operator=(const uint64 rhs) {
 		//should be idempotent.
-		Obj = FORGE_SKELETON_KEY(rhs, GunInstance_Infix);
+		Obj = FORGE_SKELETON_KEY(rhs, SFIX_GunOrAbilityInstance);
 		return *this;
 	}
 	
@@ -460,7 +449,7 @@ public:
 	//GunInstanceKeys are pretty picky.
 	FGunInstanceKey& operator=(const FSkeletonKey& rhs)
 	{
-		if((GunInstance_Infix & rhs.Obj) == GunInstance_Infix)
+		if((SFIX_GunOrAbilityInstance & rhs.Obj) == SFIX_GunOrAbilityInstance)
 		{
 			Obj = rhs.Obj;
 		}
@@ -497,11 +486,11 @@ public:
 		//this doesn't seem like it should work, but because the SFIX bit patterns are intentionally asym
 		//we actually do reclaim a bit of randomness.
 		Obj += rhs; 
-		Obj = FORGE_SKELETON_KEY(Obj, SKELLY::SFIX_GUN_SHOT);
+		Obj = FORGE_SKELETON_KEY(Obj, SKELLY::SFIX_ProjectileOrDeployable);
 	}
 
 	explicit FProjectileInstanceKey(uint64 rhs) {
-		Obj = FORGE_SKELETON_KEY(rhs, SKELLY::SFIX_GUN_SHOT);
+		Obj = FORGE_SKELETON_KEY(rhs, SKELLY::SFIX_ProjectileOrDeployable);
 	}
 	
 	operator uint64() const { return Obj; }
@@ -509,7 +498,7 @@ public:
 	
 	FProjectileInstanceKey& operator=(const uint64 rhs) {
 		//should be idempotent.
-		Obj = FORGE_SKELETON_KEY(rhs, SKELLY::SFIX_GUN_SHOT);
+		Obj = FORGE_SKELETON_KEY(rhs, SKELLY::SFIX_ProjectileOrDeployable);
 		return *this;
 	}
 	

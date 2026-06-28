@@ -102,6 +102,7 @@ public:
 		if (Gun.IsValid())
 		{
 			Gun->UpdateProbableOwner(ParentKey);
+			Gun->MyDispatch = this->MyDispatch;
 			Gun->Initialize(Gun->MyGunKey, false);
 			return MyDispatch->RegisterExistingGun(Gun, ParentKey);
 		}
@@ -160,6 +161,7 @@ public:
 		MyInput = GetWorld()->GetSubsystem<UCanonicalInputStreamECS>();
 		MyDispatch = GetWorld()->GetSubsystem<UArtilleryDispatch>();
 		TransformDispatch =  GetWorld()->GetSubsystem<UTransformDispatch>();
+		UE_LOG(LogTemp, Warning, TEXT("FCM & Owner beginning reg: %u , %s"), MyKey, *ParentKey.PrettyPrint());
 		MyInput->RegisterKeysToParentActorMapping(MyKey, true, Parent);
 		ParentKey = Parent;
 		Usable = true;

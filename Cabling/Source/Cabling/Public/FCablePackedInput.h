@@ -61,7 +61,7 @@ public:
 	std::bitset<11> ry;
 	std::bitset<20> buttons;
 	static const int64 bias = 1024;
-	static const uint64 contraction = 128;
+	static const uint64 contraction = 96;
 	static const uint64 zero_encoding = 1000;
 	//sums to 64! I counted. Like 30 times.
 	
@@ -114,8 +114,10 @@ public:
 		//we need a deadzone anyway, and this means we don't need to deal with extremely small floats.
 		//this helps ensure that we don't get hammered on bit corruption from FP rounding,
 		//though we still get it pretty bad.
-		//This actually drops a 18% of our range, which is... well. .1875.
-		if ((axis <= 0.1875f && axis >= -0.1875f) || (axis > 1.0f || axis < -1.0f))
+		//This actually drops a 9% of our range, which is... well. .09375
+		//This is down from 18% and unfortunately, you can now feel some jitter slipping in.
+		//We'll need a more adaptive way to deal with that - we just need the range badly.
+		if ((axis <= 0.09375f && axis >= -0.09375f) || (axis > 1.0f || axis < -1.0f))
 		{
 				
 			return zero_encoding;
@@ -130,11 +132,11 @@ public:
 		double contaminatedAdjustment = axis * 1024.0f; // this contaminates QUITE A FEW bits. fortunately...
 		int trunc = contaminatedAdjustment; //We range from 1024 to -1024, and actually need 11 bits a stick.
 		
-		trunc = trunc > 0 ? trunc - contraction : trunc + contraction; // contract by 18%, roughly.
+		trunc = trunc > 0 ? trunc - contraction : trunc + contraction; // contract by 9%, roughly.
 		uint32_t abs_trunc = trunc + bias; //normally, you'd need to worry about reserving the 0 position
 										//it's why you see ranges of 1024 to -1023
 										//but our deadzoning actually happens to buy us space in our range
-										//so we actually range from 832 to -832, which can very safely be biased
+										//so we actually range from 928 to -928, which can very safely be biased
 										//and stored in 11 bits.
 		memcpy(&patientNonZero, &abs_trunc, sizeof(abs_trunc));
 		return patientNonZero;

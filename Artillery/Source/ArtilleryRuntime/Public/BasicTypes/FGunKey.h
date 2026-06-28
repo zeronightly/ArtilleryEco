@@ -43,15 +43,21 @@ public:
 	{
 	}
 	
+
 	operator FSkeletonKey() const
-	{
-		return FSkeletonKey(FORGE_SKELETON_KEY(GetTypeHash(*this), SKELLY::SFIX_ART_GUNS));
+	{	
+		
+		return FSkeletonKey( 
+			//this causes the gun definition id to reside in the meta layer, and uses the POTENTIALLY EMPTY guninstance id for the hash bits.
+			//
+			SFIX_ImprintKeyDependency(GetTypeHash(GunDefinitionID), GunInstanceID, SKELLY::SFIX_GunOrAbilityPrototypeKey)
+			);
 	}
 	
 	friend uint32 GetTypeHash(const FGunKey Other)
 	{
 		//WARNING: TYPEHASH CONSIDERED HARMFUL
-		//originally, we just used typehash.
+		//originally, we just used typehash for, well, typehash.
 		//it was extremely not fine. TypeHash is fucked for scalars of 4 bytes or less. don't use it.
 		return HashCombineFast(GetTypeHash(Other.GunDefinitionID), FMMM::FastHash32(Other.GunInstanceID));
 	}

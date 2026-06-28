@@ -18,13 +18,13 @@ public class BarrageTests : ModuleRules
 			}
 			);
 			
-		bEnableExceptions = true;
+		
 
 		
 		PrivateIncludePaths.AddRange(
 			new string[]
 			{
-				// ... add other private include paths required here ...
+				Path.Combine(PluginDirectory,"Source/Barrage")
 			}
 			);
 			

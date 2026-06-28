@@ -17,6 +17,10 @@ struct ARTILLERYRUNTIME_API FAttributeMap
 	AttrMapPtr MyAttributes;
 	FSkeletonKey ParentKey;
 	UArtilleryDispatch* MyDispatch = nullptr;
+	
+	// Separate weakptr juse used for when we are in the dtor
+	TWeakObjectPtr<UArtilleryDispatch> MyDispatchWeak;
+
 	bool ReadyToUse = false;
 
 	// Don't use this default constructor, this is a bad
@@ -31,10 +35,12 @@ struct ARTILLERYRUNTIME_API FAttributeMap
 
 	void Initialize(FSkeletonKey ParentKeyIn, UArtilleryDispatch* MyDispatchIn, TMap<AttribKey, double> DefaultAttributesIn)
 	{
-		this->ParentKey = ParentKeyIn;
-		this->MyDispatch = MyDispatchIn;
+		ParentKey = ParentKeyIn;
 
-		this->MyAttributes = MakeShareable(new AttributeMap());
+		MyDispatch = MyDispatchIn;
+		MyDispatchWeak = MyDispatchIn;
+
+		MyAttributes = MakeShareable(new AttributeMap());
 		
 		//TODO: swap this to loading values from a data table, and REMOVE this fallback.
 		//If we want defaults, those defaults should ALSO live in a data table, that way when a defaulting bug screws us
@@ -70,7 +76,10 @@ struct ARTILLERYRUNTIME_API FAttributeMap
 	{
 		if (MyAttributes != nullptr)
 		{
-			MyDispatch->DeregisterAttributes(ParentKey);
+			if (auto MyDispatchPtr = MyDispatchWeak.Get()) 
+			{
+				MyDispatchPtr->DeregisterAttributes(ParentKey);
+			}
 		}
 	}
 };

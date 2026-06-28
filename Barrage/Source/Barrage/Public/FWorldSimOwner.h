@@ -77,7 +77,7 @@ class BARRAGE_API FWorldSimOwner
 {
 	// If you want your code to compile using single or double precision write 0.0_r to get a Real value that compiles to double or float depending if JPH_DOUBLE_PRECISION is set or not.
 
-
+	UBarrageDispatch* MyBarrage = nullptr;
 public:
 	
 	mutable bool Optimized = false;
@@ -126,7 +126,7 @@ public:
 			// TODO: in future if we want to enforce principle of hitbox vs. movement colliders being different,
 			// could force all entities to have both a moving physics shape + a hitbox physics shape and remove collision between MOVING and {PROJECTILE, CAST_QUERY}
 			case Layers::NON_MOVING:
-				return inObject2 != Layers::NON_MOVING && inObject2 != Layers::HITBOX && inObject2 != Layers::ENEMYHITBOX; // Non-moving collides with all moving stuff EXCEPT hitbox
+				return false; // Stuff collides with nonmoving. Not the other way around.
 			case Layers::MOVING:
 				return inObject2 == Layers::NON_MOVING || inObject2 == Layers::MOVING || inObject2 == Layers::ENEMY || inObject2 == Layers::ENEMYPROJECTILE || inObject2 == Layers::CAST_QUERY; // Moving collides with everything but hitboxes and debris
 			case Layers::ENEMY:
@@ -213,7 +213,7 @@ public:
 			switch (inLayer1)
 			{
 			case Layers::NON_MOVING:
-				return inLayer2 != JOLT::BroadPhaseLayers::NON_MOVING;
+				return false;
 			case Layers::MOVING:
 				return inLayer2 != JOLT::BroadPhaseLayers::DEBRIS;
 			case Layers::HITBOX:
@@ -281,7 +281,7 @@ public:
 	float DeltaTime = 0.01; //You should set this or pass it in.
 
 	//this is actually a member of the physics system
-	JPH::BodyInterface* body_interface;
+	JPH::BodyInterface* body_interface = nullptr;
 
 	// This is the max amount of rigid bodies that you can add to the physics system. If you try to add more you'll get an error.
 	// Note: This value is low because this is a simple test. For a real project use something in the order of 65536.
@@ -303,7 +303,7 @@ public:
 	//do not move this up. see C++ standard ~ 12.6.2
 	TSharedPtr<JPH::PhysicsSystem> physics_system;
 
-	FWorldSimOwner(float cDeltaTime, InitExitFunction JobThreadInitializer);
+	FWorldSimOwner(UBarrageDispatch* Parent, float cDeltaTime, InitExitFunction JobThreadInitializer);
 	void SphereCast(
 		double Radius,
 		double Distance,
@@ -355,7 +355,7 @@ public:
 	
 	
 	
-	void CreateHeightfieldLandscapeMesh(TNotNull<const ALandscapeProxy*> NotNull);
+	// void CreateHeightfieldLandscapeMesh(TNotNull<const ALandscapeProxy*> NotNull);
 
 
 	//This'll be trouble.
@@ -380,7 +380,7 @@ public:
 		//lifecycle certainty. It's also not as perf critical.
 		JPH::BodyID result = JPH::BodyID(BarrageKey.KeyIntoBarrage & UINT32_MAX);
 		// if they COULD exist, we proceed.
-		if (!result.IsInvalid())
+		if (!result.IsInvalid() && body_interface->IsAdded(result))
 		{
 			body_interface->RemoveBody(result);
 			body_interface->DestroyBody(result);

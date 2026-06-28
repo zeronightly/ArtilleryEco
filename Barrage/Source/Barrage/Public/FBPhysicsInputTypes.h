@@ -28,7 +28,7 @@ enum PhysicsInputType
 	ResetForces
 };
 
-enum FBShape
+enum FBShape : uint8
 {
 	Uninitialized,
 	Capsule,

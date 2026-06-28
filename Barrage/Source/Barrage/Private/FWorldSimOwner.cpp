@@ -1,19 +1,18 @@
 ﻿#include "FWorldSimOwner.h"
 
 #include "BarrageContactListener.h"
-#include "MashFunctions.h"
 #include "CoordinateUtils.h"
-#include "LandscapeComponent.h"
-#include "LandscapeProxy.h"
-#include "Experimental/CollisionGroupUnaware_FleshBroadPhase.h"
+//#include "LandscapeComponent.h"
+#include "MashFunctions.h"
 #include "PhysicsCharacter.h"
 #include "StaticMeshCompiler.h"
 #include "CastShapeCollectors/SphereCastCollector.h"
 #include "CastShapeCollectors/SphereSearchCollector.h"
-#include "CollisionDetectionFilters/FirstHitRayCastCollector.h"
 #include "Chaos/TriangleMeshImplicitObject.h"
-#include "Engine/StaticMesh.h"
+#include "CollisionDetectionFilters/FirstHitRayCastCollector.h"
 #include "Conversion/BarrageChaosToJoltConversion.h"
+#include "Engine/StaticMesh.h"
+#include "Experimental/CollisionGroupUnaware_FleshBroadPhase.h"
 #include "Jolt/Physics/Collision/BroadPhase/BroadPhaseBruteForce.h"
 #include "PhysicsProxy/SingleParticlePhysicsProxy.h"
 
@@ -54,17 +53,17 @@ int32 GetDesiredBarrageJobThreadCount()
 using namespace JOLT;
 //it's going to be quite tempting to make that initexit a const or a reference. don't.
 // ReSharper disable once CppPassValueParameterByConstReference
-FWorldSimOwner::FWorldSimOwner(float cDeltaTime, InitExitFunction JobThreadInitializer)
+FWorldSimOwner::FWorldSimOwner(UBarrageDispatch* Parent, float cDeltaTime, InitExitFunction JobThreadInitializer)
 {
 	DeltaTime = cDeltaTime;
-
+	MyBarrage = Parent;
 	BarrageToJoltMapping = MakeShareable(new KeyToBody());
 	CharacterToJoltMapping = MakeShareable(new TMap<FBarrageKey, TSharedPtr<FBCharacterBase>>());
 	//mTestBroadPhase = std::make_shared<CollisionGroupUnaware_FleshBroadPhase>();
 
 	//hey future friend! collision listeners, character collision, and character collision listeners live below. so...
 	//if you are looking for character collision behavior, this is the line that sets it up.
-	character_contact_listener = MakeShareable(new BarrageContactListener());
+	character_contact_listener = MakeShareable(new BarrageContactListener(MyBarrage));
 	contact_listener = character_contact_listener;
 	Allocator = MakeShareable(new TempAllocatorImpl(AllocationArenaSize));
 	physics_system = MakeShareable(new PhysicsSystem());
@@ -549,11 +548,12 @@ FBLet FWorldSimOwner::LoadComplexStaticMesh(FBTransform& MeshTransform,
 	creation_settings.mMotionQuality = MotionQuality;
 	creation_settings.mUseManifoldReduction = true;
 	creation_settings.mIsSensor = IsSensor;
-	creation_settings.mAllowSleeping = false;
+	creation_settings.mAllowSleeping = true; //DANGER WILL ROBINSON: DETERMINISM HAZARD.
 	Shape::ShapeResult result = CreatedShape->ScaleShape(MeshTransform.GetJoltScale());
 	if (result.HasError() || result.IsEmpty())
 	{
-		throw;
+		ensureMsgf(false, TEXT("Jolt body creation failed! Yikes! No collision we could use was found maybe? Error: %hs"), ShapeCreationResult.GetError().c_str());
+		return nullptr;
 	}
 	//reminder: translation and position do differ.
 	if (CenterOfMassTranslation == FVector::ZeroVector && MeshTransform.GetRotationQuat() == FQuat4f::Identity)
@@ -574,49 +574,49 @@ FBLet FWorldSimOwner::LoadComplexStaticMesh(FBTransform& MeshTransform,
 		AddInternalQueuing(bID, 0);// You know that scene where data tries alcohol, hates it, and immediately orders another?
 		FBarrageKey FBK = GenerateBarrageKeyFromBodyId(bID);
 		BarrageToJoltMapping->insert_or_assign(FBK, bID);
-		FBLet shared = MakeShareable(new FBarragePrimitive(FBK, Outkey));
+		FBLet shared = MakeShareable(new FBarragePrimitive(FBK, Outkey, this));
 		return shared;
 	}
 }
 
-void FWorldSimOwner::CreateHeightfieldLandscapeMesh(TNotNull<const ALandscapeProxy*> InLandscapeActor) {
-	
-	for (const ULandscapeComponent* LandscapeComp : InLandscapeActor->LandscapeComponents) {
-		
-		if (const ULandscapeHeightfieldCollisionComponent* CollisionComp = LandscapeComp->GetCollisionComponent()) {
-			
-			//
-			auto BodyInstance = CollisionComp->GetBodyInstance();
-
-
-			auto& ActorGameHandle = BodyInstance->ActorHandle->GetGameThreadAPI();
-			
-			// Barrage::Conversion::TriMeshToJoltMeshShape()
-
-			if (JPH::ShapeSettings* ShapeSettings = Barrage::Conversion::ConvertChaosGeoToJoltBody(*ActorGameHandle.GetGeometry())) {
-				
-				auto CreationResult = ShapeSettings->Create();
-				if (CreationResult.HasError()) {
-					return;
-				}
-				
-				const FTransform& UnrealTransform = CollisionComp->GetComponentTransform();
-				
-				JPH::BodyCreationSettings BodyCreationSettings;
-				BodyCreationSettings.SetShape(CreationResult.Get());
-				BodyCreationSettings.mPosition = CoordinateUtils::ToJoltCoordinates(UnrealTransform.GetLocation());
-				BodyCreationSettings.mRotation = CoordinateUtils::ToJoltRotation(UnrealTransform.GetRotation());
-				BodyCreationSettings.mMotionType = EMotionType::Static;
-				BodyCreationSettings.mObjectLayer = Layers::EJoltPhysicsLayer::NON_MOVING;
-
-				
-				body_interface->CreateAndAddBody(BodyCreationSettings, EActivation::DontActivate);
-				// physics_system->
-				// CreationResult
-			}
-		}
-	}
-}
+// void FWorldSimOwner::CreateHeightfieldLandscapeMesh(TNotNull<const ALandscapeProxy*> InLandscapeActor) {
+// 	
+// 	for (const ULandscapeComponent* LandscapeComp : InLandscapeActor->LandscapeComponents) {
+// 		
+// 		if (const ULandscapeHeightfieldCollisionComponent* CollisionComp = LandscapeComp->GetCollisionComponent()) {
+// 			
+// 			//
+// 			auto BodyInstance = CollisionComp->GetBodyInstance();
+//
+//
+// 			auto& ActorGameHandle = BodyInstance->ActorHandle->GetGameThreadAPI();
+// 			
+// 			// Barrage::Conversion::TriMeshToJoltMeshShape()
+//
+// 			if (JPH::ShapeSettings* ShapeSettings = Barrage::Conversion::ConvertChaosGeoToJoltBody(*ActorGameHandle.GetGeometry())) {
+// 				
+// 				auto CreationResult = ShapeSettings->Create();
+// 				if (CreationResult.HasError()) {
+// 					return;
+// 				}
+// 				
+// 				const FTransform& UnrealTransform = CollisionComp->GetComponentTransform();
+// 				
+// 				JPH::BodyCreationSettings BodyCreationSettings;
+// 				BodyCreationSettings.SetShape(CreationResult.Get());
+// 				BodyCreationSettings.mPosition = CoordinateUtils::ToJoltCoordinates(UnrealTransform.GetLocation());
+// 				BodyCreationSettings.mRotation = CoordinateUtils::ToJoltRotation(UnrealTransform.GetRotation());
+// 				BodyCreationSettings.mMotionType = EMotionType::Static;
+// 				BodyCreationSettings.mObjectLayer = Layers::EJoltPhysicsLayer::NON_MOVING;
+//
+// 				
+// 				body_interface->CreateAndAddBody(BodyCreationSettings, EActivation::DontActivate);
+// 				// physics_system->
+// 				// CreationResult
+// 			}
+// 		}
+// 	}
+// }
 
 void FWorldSimOwner::StepSimulation()
 {

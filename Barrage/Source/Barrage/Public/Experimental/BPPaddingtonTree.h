@@ -332,7 +332,7 @@ public:
 
 		void BPPaddingtonTree::AddBodiesAbort(BodyID* ioBodies, int inNumber, AddState inAddState)
 		{
-			throw; //absolutely not. just remove them like a normal human, for the love of god.
+			
 		}
 
 		//TODO: just lie less?
@@ -392,8 +392,7 @@ public:
 
 		void BPPaddingtonTree::NotifyBodiesLayerChanged(BodyID* ioBodies, int inNumber)
 		{
-			//this is no longer supported.
-			throw;
+			
 		}
 
 		void BPPaddingtonTree::CastRay(const RayCast& inRay, RayCastBodyCollector& ioCollector,

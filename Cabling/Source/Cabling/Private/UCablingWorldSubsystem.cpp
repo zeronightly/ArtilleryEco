@@ -32,7 +32,6 @@ bool UCablingWorldSubsystem::RegistrationImplementation()
 	controller_runner.CabledThreadControlQueue = this->CabledThreadControlQueue;
 	controller_runner.GameThreadControlQueue = this->GameThreadControlQueue;
 	controller_thread.Reset(FRunnableThread::Create(&controller_runner, TEXT("Cabling Runner")));
-	SelfPtr = this;
 	return true;
 }
 

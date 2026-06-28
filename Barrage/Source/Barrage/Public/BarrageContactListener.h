@@ -3,15 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "BarrageDispatch.h"
 #include "IsolatedJoltIncludes.h"
 
 class BarrageContactListener : public JPH::ContactListener, public JPH::CharacterContactListener
 {
 public:
-	BarrageContactListener()
-	{
-	}
-	
+	BarrageContactListener(UBarrageDispatch* Barrage);
+	UBarrageDispatch* MyBarrage = nullptr;
 	virtual JPH::ValidateResult OnContactValidate(const JPH::Body& inBody1, const JPH::Body& inBody2, JPH::RVec3Arg inBaseOffset,
 	                                              const JPH::CollideShapeResult& inCollisionResult) override;
 

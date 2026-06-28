@@ -423,8 +423,7 @@ public:
         CONST_IF(sizeof(IT) == 1) inc_counts(arr);
         else CONST_IF(sizeof(IT) == 2) inc_counts16(arr);
         else CONST_IF(sizeof(IT) == 4) inc_counts32(arr);
-        else CONST_IF(sizeof(IT) == 8) inc_counts64(arr);
-        else throw std::runtime_error(std::string("Unsupported type of size: ") + std::to_string(sizeof(IT)));
+        else inc_counts64(arr); // if you ask for something stupid, we'll just give you this.
     }
 #endif
     template<typename T, size_t iternum, size_t niter_left> struct unroller {
@@ -863,7 +862,7 @@ public:
 
     // Returns error estimate
     double cest_err() const {
-        if(!is_calculated()) throw std::runtime_error("Result must be calculated in order to report.");
+        if(!is_calculated()) return -0.0;
         return relative_error() * creport();
     }
     double est_err() const noexcept {
@@ -932,16 +931,7 @@ public:
     }
 #endif
     void parsum(int nthreads=-1, size_t pb=4096) {
-        throw; //posix dependency I don't feel like fixing atm.
-        // if(nthreads < 0) nthreads = nthreads > 0 ? nthreads: std::thread::hardware_concurrency();
-        // std::atomic<uint64_t> acounts[64];
-        // std::fill(std::begin(acounts), std::end(acounts), 0);
-        // detail::parsum_data_t<decltype(core_)> data{acounts, core_, m(), pb};
-        // const uint64_t nr(core_.size() / pb + (core_.size() % pb != 0));
-        // for(nthreads, detail::parsum_helper<decltype(core_)>, &data, nr);
-        // uint64_t counts[64];
-        // std::memcpy(counts, acounts, sizeof(counts));
-        // value_ = detail::calculate_estimate(counts, estim_, m(), np_, alpha());
+        ensureMsgf(false, TEXT("Unsupported POSIX dependency. Please implement support if you intend to use sketch on this platform."));
     }
     ssize_t printf(std::FILE *fp) const noexcept {
         ssize_t ret = std::fputc('[', fp) > 0;
@@ -962,9 +952,7 @@ public:
         // See Algorithm 3 in https://arxiv.org/abs/1702.01284
         // This is not very optimized.
         // I might later add support for doubling, c/o https://research.neustar.biz/2013/04/30/doubling-the-size-of-an-hll-dynamically-extra-bits/
-        if(new_np == np_) return hllbase_t(*this);
-        if(new_np > np_)
-            throw std::runtime_error(std::string("Can't compress to a larger size. Current: ") + std::to_string(np_) + ". Requested new size: " + std::to_string(new_np));
+        if(new_np == np_ || new_np > np_) return hllbase_t(*this);
         hllbase_t<HashStruct> ret(new_np, get_estim(), get_jestim());
         unsigned diff = np_ - new_np;
         size_t ratio = static_cast<size_t>(1) << (diff);
@@ -1326,7 +1314,7 @@ public:
 #ifndef VEC_DISABLED__
         unsigned k = 0;
         if(size() >= Space::COUNT) {
-            if(size() & (size() - 1)) throw ("supporting a non-power of two.");
+
             const Type *sptr = reinterpret_cast<const Type *>(&seeds_[0]);
             const Type *eptr = reinterpret_cast<const Type *>(&seeds_[seeds_.size()]);
             VType key;
@@ -1345,7 +1333,7 @@ public:
         unsigned k = 0;
 #ifndef VEC_DISABLED__
         if(size() >= Space::COUNT) {
-            if(size() & (size() - 1)) throw ("supporting a non-power of two.");
+
             const Type *sptr = reinterpret_cast<const Type *>(&seeds_[0]);
             const Type *eptr = reinterpret_cast<const Type *>(&seeds_[seeds_.size()]);
             const Type element = Space::set1(val);
@@ -1529,7 +1517,6 @@ struct wh119_t {
     }
     double union_size(const wh119_t &o) const {return union_size(o.core_);}
     double union_size(const std::vector<uint8_t, Allocator<uint8_t>> &o) const {
-        if(o.size() != size()) throw std::runtime_error("Non-matching parameters for wh119_t");
         std::array<uint32_t, 256> counts;
         std::memset(counts.data(), 0, sizeof(counts));
         size_t i;

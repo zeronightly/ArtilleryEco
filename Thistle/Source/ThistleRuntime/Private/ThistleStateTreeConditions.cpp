@@ -17,7 +17,7 @@ bool FArtilleryTagMatchCondition::TestCondition(FStateTreeExecutionContext& Cont
 {
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 	bool found = false;
-	FConservedTags Container = UArtilleryLibrary::InternalTagsByKey(InstanceData.KeyOf, found); //with the newer conserved tags, we COULD save this off..
+	FConservedTags Container = UArtilleryLibrary::InternalTagsByKey(UArtilleryDispatch::Get(Context.GetWorld()),  InstanceData.KeyOf, found); //with the newer conserved tags, we COULD save this off..
 	//TODO: add "has tag" support, not just has exact tag support.
 	//return (bExactMatch ?  Container->Find(InstanceData.Tag) : Container->HasTag(InstanceData.Tag)) ^ bInvert;
 	return found && Container->Find(InstanceData.Tag) ^ bInvert;
@@ -32,7 +32,7 @@ bool FArtilleryAttributeValueCondition::TestCondition(FStateTreeExecutionContext
 {
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 	bool Found = false;
-	float Value = UArtilleryLibrary::implK2_GetAttrib(InstanceData.KeyOf, InstanceData.AttributeName, Found);
+	float Value = UArtilleryLibrary::implK2_GetAttrib(UArtilleryDispatch::Get(Context.GetWorld()), InstanceData.KeyOf, InstanceData.AttributeName, Found);
 	return Found && Test(Value, TestValue);
 }
 
@@ -41,8 +41,8 @@ bool FArtilleryAttributeCompareCondition::TestCondition(FStateTreeExecutionConte
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 	bool Found = false;
 	bool TargetFound = false;
-	float Value = UArtilleryLibrary::implK2_GetAttrib(InstanceData.KeyOf, InstanceData.AttributeName, Found);
-	float TestAttrib = UArtilleryLibrary::implK2_GetAttrib(InstanceData.KeyOf, InstanceData.AttributeName, Found);
+	float Value = UArtilleryLibrary::implK2_GetAttrib(UArtilleryDispatch::Get(Context.GetWorld()), InstanceData.KeyOf, InstanceData.AttributeName, Found);
+	float TestAttrib = UArtilleryLibrary::implK2_GetAttrib(UArtilleryDispatch::Get(Context.GetWorld()), InstanceData.KeyOf, InstanceData.AttributeName, Found);
 	if (Found)
 	{
 		if (TargetFound)
@@ -65,14 +65,15 @@ bool FArtilleryCompareRelatedCondition::TestCondition(FStateTreeExecutionContext
 	bool RelatedKey_AttributeFound = false;
 	bool RelatedKey_FoundAtAll = false;
 
+	auto ArtilleryDispatch = UArtilleryDispatch::Get(Context.GetWorld());
 
-	auto Identity = UArtilleryLibrary::K2_GetIdentity(InstanceData.KeyOf, Relationship, RelatedKey_FoundAtAll);
+	auto Identity = UArtilleryLibrary::K2_GetIdentity(ArtilleryDispatch, InstanceData.KeyOf, Relationship, RelatedKey_FoundAtAll);
 	if (RelatedKey_AttributeFound)
 	{
-		auto TestAttribValue = UArtilleryLibrary::implK2_GetAttrib(Identity, InstanceData.AttributeName, RelatedKey_AttributeFound);
+		auto TestAttribValue = UArtilleryLibrary::implK2_GetAttrib(ArtilleryDispatch, Identity, InstanceData.AttributeName, RelatedKey_AttributeFound);
 		if (RelatedKey_AttributeFound)
 		{
-			auto SourceValue = UArtilleryLibrary::implK2_GetAttrib(InstanceData.KeyOf, InstanceData.AttributeName, SourceKey_AttributeFound);
+			auto SourceValue = UArtilleryLibrary::implK2_GetAttrib(ArtilleryDispatch, InstanceData.KeyOf, InstanceData.AttributeName, SourceKey_AttributeFound);
 			if (bCompareWithTargetKeyAttribute && SourceKey_AttributeFound)
 			{
 				return Test(TestAttribValue, SourceValue);
@@ -98,28 +99,30 @@ bool FArtilleryCompareKeys::TestCondition(FStateTreeExecutionContext& Context) c
 bool FCheckLoStoPoI::TestCondition(FStateTreeExecutionContext& Context) const
 {
 	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
+	auto Barrage = UBarrageDispatch::Get(Context.GetWorld());
+	auto ArtilleryDispatch = UArtilleryDispatch::Get(Context.GetWorld());
 	bool Shucked = false;
-	auto Source = InstanceData.Source.ShuckPoi(Shucked);
+	auto Source = InstanceData.Source.ShuckPoi(Context,Shucked);
 	if (!Shucked) { return false; }
-	auto Target = InstanceData.Target.ShuckPoi(Shucked);
+	auto Target = InstanceData.Target.ShuckPoi(Context,Shucked);
 	// ReSharper disable once CppRedundantControlFlowJump
 	if (!Shucked) { return false; }
 	auto ToFrom = (Target - Source);
 	auto Length = ToFrom.Length() + 1;
-	if ((UArtilleryLibrary::GetTotalsTickCount() % InstanceData.TicksBetweenCastRefresh) == 0 &&
-		UBarrageDispatch::SelfPtr)
+	if ((UArtilleryLibrary::GetTotalsTickCount(UArtilleryDispatch::Get(Context.GetWorld())) % InstanceData.TicksBetweenCastRefresh) == 0 &&
+		Barrage)
 	{
-		const JPH::DefaultBroadPhaseLayerFilter default_broadphase_layer_filter = UBarrageDispatch::SelfPtr->JoltGameSim
+		const JPH::DefaultBroadPhaseLayerFilter default_broadphase_layer_filter = Barrage->JoltGameSim
 			->physics_system->GetDefaultBroadPhaseLayerFilter(Layers::CAST_QUERY);
-		const JPH::DefaultObjectLayerFilter default_object_layer_filter = UBarrageDispatch::SelfPtr->JoltGameSim->
+		const JPH::DefaultObjectLayerFilter default_object_layer_filter = Barrage->JoltGameSim->
 			physics_system->GetDefaultLayerFilter(Layers::CAST_QUERY);
 
 		if (InstanceData.SourceBodyKey_SetOrRegret.IsValid()
-			&& UArtilleryDispatch::SelfPtr->IsLiveKey(InstanceData.SourceBodyKey_SetOrRegret) != DEAD)
+			&& ArtilleryDispatch->IsLiveKey(InstanceData.SourceBodyKey_SetOrRegret) != DEAD)
 		{
-			JPH::IgnoreSingleBodyFilter StopHittingYourself = UBarrageDispatch::SelfPtr->GetFilterToIgnoreSingleBody(
-				UBarrageDispatch::SelfPtr->GetShapeRef(InstanceData.SourceBodyKey_SetOrRegret)->KeyIntoBarrage);
-			UBarrageDispatch::SelfPtr->SphereCast(InstanceData.Radius, Length, Source, ToFrom.GetSafeNormal(),
+			JPH::IgnoreSingleBodyFilter StopHittingYourself = Barrage->GetFilterToIgnoreSingleBody(
+				Barrage->GetShapeRef(InstanceData.SourceBodyKey_SetOrRegret)->KeyIntoBarrage);
+			Barrage->SphereCast(InstanceData.Radius, Length, Source, ToFrom.GetSafeNormal(),
 												  InstanceData.HitResultCache, default_broadphase_layer_filter,
 												  default_object_layer_filter, StopHittingYourself);
 			
@@ -131,9 +134,9 @@ bool FCheckLoStoPoI::TestCondition(FStateTreeExecutionContext& Context) const
 			{
 				if (InstanceData.Outcome.MyItem != JPH::BodyID::cInvalidBodyID)
 				{
-					FBarrageKey HitBarrageKey = UBarrageDispatch::SelfPtr->GenerateBarrageKeyFromBodyId(
+					FBarrageKey HitBarrageKey = Barrage->GenerateBarrageKeyFromBodyId(
 					static_cast<uint32>(InstanceData.Outcome.MyItem));
-					FBLet HitObjectFiblet = UBarrageDispatch::SelfPtr->GetShapeRef(HitBarrageKey);
+					FBLet HitObjectFiblet = Barrage->GetShapeRef(HitBarrageKey);
 					if (HitObjectFiblet && HitObjectFiblet->KeyOutOfBarrage == InstanceData.Target.PointOfInterestKey)
 					{
 						HitTarget = true;

@@ -27,6 +27,10 @@ enum ArtilleryRequestType
 	SpawnInstancedStaticMesh,
 	//Ticklites
 	DeferredTickliteInstantiation,
+	
+	AddText,
+	AddName,
+	FreeTextAndName,
 };
 
 USTRUCT()
@@ -35,7 +39,10 @@ struct ARTILLERYRUNTIME_API FTickliteRequest
 	GENERATED_BODY()
 public:
 	ArtilleryTime Stamp;
-
+	//currently only used for text storage handling!!!!!
+	FSkeletonKey OwnerIfAny = FSkeletonKey::Invalid(); 
+	FName NameIfAny;
+	FString TextIfAny = "";
 	FTickliteRequest() = default;
 	TicklitePrototype* AllocatedTicklite;
 	Arty::TicklitePhase MyGroup;
@@ -64,13 +71,18 @@ struct ARTILLERYRUNTIME_API FRequestThing
 	{
 	}
 
-	FRequestThing(ArtilleryRequestType MyType): Stamp(0), ThingVector(), ThingVector2(), ThingVector3(), ThingRotator(),
-	                                            Relationship(), Layer()
+	FRequestThing(ArtilleryRequestType MyType) : Stamp(0), ThingVector(), ThingVector2(), ThingVector3(),
+	                                             ThingRotator(),
+	                                             Relationship(), Layer()
 	{
 		if (MyType == FireAGun || MyType == GetABullet)
 		{
-			throw; // these requests MUST be made with the inheritor type FRequestGameThreadThing
-			//if it didn't crash here, it'd crash when the request was run.
+			UE_LOG(
+				LogTemp,
+				Error,
+				TEXT(
+					"Invalid request constructed. This is UB."
+				));
 		}
 		Type = MyType;
 	}

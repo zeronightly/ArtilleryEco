@@ -1,8 +1,12 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// MIT Licensed, copyright JMK
 #include "TransformDispatch.h"
 
 #include "ORDIN.h"
 #include "SwarmKine.h"
+
+#ifdef WITH_EDITOR
+#include "SkeletonKeyDebugger.h"
+#endif
 
 UTransformDispatch::UTransformDispatch()
 {
@@ -34,7 +38,7 @@ void UTransformDispatch::RegisterObjectToShadowTransform(FSkeletonKey Target, US
 	ObjectToTransformMapping->insert_or_assign(Target, kine);
 }
 
-inline TSharedPtr<Kine> UTransformDispatch::GetKineByObjectKey(FSkeletonKey Target) const
+TSharedPtr<Kine> UTransformDispatch::GetKineByObjectKey(FSkeletonKey Target)
 {
 	TSharedPtr<KinematicRef> ref;
 	ObjectToTransformMapping->visit(Target, [&ref](auto& a){ref = a.second;});
@@ -83,8 +87,15 @@ TStatId UTransformDispatch::GetStatId() const
 
 bool UTransformDispatch::RegistrationImplementation()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Shadow Transforms Subsystem: Online"));
-	SelfPtr = this;
+	UE_LOG(LogTemp, Warning, TEXT("Transforms Subsystem: Online"));
+#ifdef WITH_EDITOR
+	SkeletonKeyDebugger = MakeShared<class SkeletonKeyDebugger>();
+	if (SkeletonKeyDebugger.IsValid())
+	{
+		SkeletonKeyDebugger->Initialize(this);
+	}
+#endif
+	
 	return true;
 }
 
@@ -96,7 +107,6 @@ void UTransformDispatch::Initialize(FSubsystemCollectionBase& Collection)
 
 void UTransformDispatch::Deinitialize()
 {
-	SelfPtr = nullptr;
 	ObjectToTransformMapping->clear();
 	
 	Super::Deinitialize();
@@ -120,4 +130,12 @@ void UTransformDispatch::PostLoad()
 void UTransformDispatch::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+#ifdef WITH_EDITOR
+	if (SkeletonKeyDebugger.IsValid())
+	{
+		SkeletonKeyDebugger->Draw(DeltaTime);
+	}
+#endif
+	
 }

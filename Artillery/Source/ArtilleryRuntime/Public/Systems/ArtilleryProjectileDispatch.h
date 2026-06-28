@@ -6,7 +6,8 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "AInstancedMeshManager.h"
 #include "FProjectileDefinitionRow.h"
-#include "Structures/ParallelFixedQueueTypes.h"
+#include "Engine/Engine.h"
+#include "Structures/ConcurrencyTypes/ParallelFixedQueueTypes.h"
 //look, it's important that you wrap both your typedefs and your lib include in these, and that the lib include always be explicit.
 //lbc is a header only lib. this has some pretty stark implications. we probably need to move ALL type defs and ALL
 //includes into a Lbc module, isolate them, and compile them.
@@ -44,7 +45,21 @@ UCLASS()
 class ARTILLERYRUNTIME_API UArtilleryProjectileDispatch : public UTickableWorldSubsystem, public ISkeletonLord, public ITickHeavy
 {
 	GENERATED_BODY()
+	static UArtilleryProjectileDispatch* Get(UWorld& World)
+	{
+		return World.GetSubsystem<UArtilleryProjectileDispatch>();
+	}
+	
+	static UArtilleryProjectileDispatch* Get(UObject* WorldContextObject) 
+	{
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+		if (ensure(World)) 
+		{
+			return UArtilleryProjectileDispatch::Get(*World);
+		}
 
+		return nullptr;
+	}
 	using ICanReady = ITickHeavy;
 	inline static auto GamePath = TEXT("DataTable'/Game/DataTables/ProjectileDefinitions.ProjectileDefinitions'");
 	//we don't really recommend using this path for long, but we ship with it because we believe you should be
@@ -52,7 +67,6 @@ class ARTILLERYRUNTIME_API UArtilleryProjectileDispatch : public UTickableWorldS
 	inline static auto EcoPath = TEXT("DataTable'/Artillery/DataTables/ProjectileDefinitions.ProjectileDefinitions'");
 public:
 	friend class UArtilleryLibrary;
-	static inline UArtilleryProjectileDispatch* SelfPtr = nullptr;
 	int DEFAULT_LIFE_OF_PROJECTILE = ArtilleryTickHertz * 20.0; //20 seconds.
 	constexpr static int OrdinateSeqKey = ORDIN::E_D_C::ProjectileSystem;
 	

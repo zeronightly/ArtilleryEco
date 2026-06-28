@@ -15,7 +15,7 @@ public class Bristlecone : ModuleRules
             }
         );
 
-        bEnableExceptions = true;
+        
         //may also need to add an explicit runtime dependency.
         // Get the engine path. Ends with "Engine/"
         string engine_path = EngineDirectory;
@@ -54,12 +54,16 @@ public class Bristlecone : ModuleRules
 			});
 
 
-        DynamicallyLoadedModuleNames.AddRange(
-            new string[]
-            {
-				// ... add any modules that your module loads dynamically here ...
-			}
-            );
+
+
+        if (Target.bBuildEditor)
+        {
+            PrivateDependencyModuleNames.AddRange(
+                new string[]
+                {
+                    "IrisCore",
+                });
+        }
 
 	}
 }

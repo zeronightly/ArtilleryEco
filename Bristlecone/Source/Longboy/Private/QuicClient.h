@@ -191,7 +191,7 @@ namespace Quicky
 	}
 
 	// The rest here is for MsQuic -> UE5 conversion
-	uint64 GetStreamId(const QUIC_API_TABLE* Api, HQUIC StreamHandle)
+	inline uint64 GetStreamId(const QUIC_API_TABLE* Api, HQUIC StreamHandle)
 	{
 		check(Api != nullptr);
 
@@ -212,7 +212,7 @@ namespace Quicky
 	}
 }
 
-uint32 GetTypeHash(const FStreamData& Data)
+inline uint32 GetTypeHash(const FStreamData& Data)
 {
 	return GetTypeHash(Data.StreamId);
 }

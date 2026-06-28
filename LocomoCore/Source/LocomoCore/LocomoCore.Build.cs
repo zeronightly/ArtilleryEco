@@ -12,7 +12,7 @@ public class LocomoCore : ModuleRules
 	{
 		//PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		bEnableExceptions = true;
+		
 		PublicIncludePaths.AddRange(
 			new string[] {
 				Path.Combine(PluginDirectory,"Source/LocomoCore"),

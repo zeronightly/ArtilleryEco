@@ -3,11 +3,17 @@
 #pragma once
 
 #include "ArtilleryActorControllerConcepts.h"
+#include "BarrageDispatch.h"
 #include "BLK.h"
+#include "BoneContainer.h"
+#include "BoneIndices.h"
 #include "KeyedConcept.h"
 #include "ORDIN.h"
 #include "TransformDispatch.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Containers/ConsumeAllMpmcQueue.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "Anim/MegafunkAnimUtilsTypes.h"
 #include "ArtillerySkeletalMeshDispatch.generated.h"
 
 namespace BLK {
@@ -50,7 +56,7 @@ public:
 
 	// Creates an anim instance in the artillery thread and updates it in artillery tick
 	void CreateAnimInstanceStateForUpdate(const FSkeletonKey InOwnerSkeletonKey,
-	                                        const TSubclassOf<UAnimInstance> InAnimInstanceClass,
+	                                        const TSubclassOf<UAnimInstance>& InAnimInstanceClass,
 	                                        USkeletalMesh& InSkeletalMesh,
 	                                        TSharedRef<struct FBoneContainer> InRequiredBones,
 	                                        const TArray<FBoneIndexType>& InFillComponentSpaceTransformsRequiredBones,
@@ -67,13 +73,14 @@ public:
 
 protected:
 	
-	// Special lock-free queue to forward skeleteal mesh data to the game thread
+	// Special lock-free queue to forward skeletal mesh data to the game thread
 	BLK::BLKRing SkeletonBLKRing;
 	uint64 BLKFrameCounter = 0;
+	//should not exceed PracticalMaxNumberOfConsumers
 	static constexpr int32 ConsumerCount = 8;
 	UE::Tasks::TTask<void> ConsumerTaskHandles[ConsumerCount] = {};
 	// Artillery thread only handle into the BLKRing
-	BLK::WorkerStateBundle ThreadStateBundleArtilleryThread;
+	BLK::WorkerStateBundle ThreadStateBundleArtilleryThread[ConsumerCount] = {};
 
 	
 	// Artillery thread only (we create objects on other threads in here, it can't use normal GC afaik but I can test some things)
@@ -81,7 +88,9 @@ protected:
 	
 	// Queued from artillery and intended to be read for each render udpate 
 	UE::TConsumeAllMpmcQueue<FSkeletonAnimResultQueueElement> AnimationEvaluationResultQueue;
-	
+	// Used on the main thread to gather up unique indices (very sad to copy them but unsafe otherwise for now)
+	TArray<FSkeletonAnimResultQueueElement> FinishedWork;
+
 	
 	// Why? Because we have multiple threads constantly trying to fight over these, I will use a normal queue soon I think
 	FCriticalSection PendingAnimStateContainersCriticalSection;
@@ -104,6 +113,9 @@ public:
 	TObjectPtr<UArtilleryDispatch> ArtilleryDispatch;
 	UPROPERTY()
 	TObjectPtr<UTransformDispatch> TransformDispatch;
+	
+	UPROPERTY()
+	TObjectPtr<UBarrageDispatch> BarrageDispatch;
 	
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;

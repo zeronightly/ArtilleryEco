@@ -64,14 +64,13 @@ public:
 		//Implementing this will not be easy, but it will suck a lot less than trying to do this with gameplay effects.
 		//This is one reason we advocate STRONGLY for the use of KEYS over references, as references to memmory location
 		//are not durable across rollbacks.
-		throw; 
+		return false; 
 	}
 
 	virtual bool Init() override
 	{
 		LocalNow = 0;
 		UE_LOG(LogTemp, Display, TEXT("Artillery: Booting StateTrees thread."));
-		running = true;
 		return true;
 	}
 	
@@ -111,7 +110,7 @@ private:
 	{
 		running = false;
 	};
-	
-	bool running;
+
+	bool running = true;
 };
 

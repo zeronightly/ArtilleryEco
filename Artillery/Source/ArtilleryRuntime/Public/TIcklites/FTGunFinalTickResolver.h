@@ -44,11 +44,11 @@ public:
 		{
 			return;
 		}
-		
-		AttrPtr GunCooldownRemaining = AttribMap->FindRef(COOLDOWN_REMAINING);
-
+		auto* possible = AttribMap->Find(COOLDOWN_REMAINING);
+		FConservedAttributeData* GunCooldownRemaining = possible ? possible->Get() : nullptr;
+#define ATTRGETPTRU(Attr, LocalName) possible = AttribMap->Find(Attr); FConservedAttributeData* LocalName = possible ? possible->Get() : nullptr;
 		// Reduce cd remaining by one tick, flooring at 0.
-		if (GunCooldownRemaining.IsValid())
+		if (GunCooldownRemaining)
 		{
 			const float CurrCooldownValue = GunCooldownRemaining->GetCurrentValue();
 			if (CurrCooldownValue > 0.f) {
@@ -57,10 +57,11 @@ public:
 		}
 
 		// handle reload
-		AttrPtr CurrentAmmo = AttribMap->FindRef(AMMO);
-		AttrPtr MaxAmmo = AttribMap->FindRef(MAX_AMMO);
-		AttrPtr ReloadTime = AttribMap->FindRef(RELOAD);
-		AttrPtr ReloadRemaining = AttribMap->FindRef(RELOAD_REMAINING);
+
+		ATTRGETPTRU(AMMO, CurrentAmmo)
+		ATTRGETPTRU(MAX_AMMO, MaxAmmo)
+		ATTRGETPTRU(RELOAD, ReloadTime)
+		ATTRGETPTRU(RELOAD_REMAINING, ReloadRemaining)
 		if (CurrentAmmo && MaxAmmo && ReloadTime && ReloadRemaining)
 		{
 			float CurrentAmmoValue = CurrentAmmo->GetCurrentValue();
@@ -89,6 +90,7 @@ public:
 				}
 			}
 		}
+#undef ATTRGETPTRU
 	}
 	
 	void TICKLITE_CoreReset()

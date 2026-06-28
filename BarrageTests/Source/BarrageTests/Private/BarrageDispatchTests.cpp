@@ -135,7 +135,6 @@ void FBarrageDispatchTests::Define()
 				{
 					It("Should initialize subsystem correctly", [this]()
 						{
-							TestTrue("SelfPtr should be set after initialization", UBarrageDispatch::SelfPtr != nullptr);
 							TestTrue("Thread accumulator not be 0", BarrageDispatch->ThreadAccTicker != 0);
 							TestTrue("Worker thread accumulator not be 0", BarrageDispatch->WorkerThreadAccTicker != 0);
 						});
@@ -700,7 +699,7 @@ void FBarrageDispatchTests::Define()
 
 BEGIN_DEFINE_SPEC(FBarrageDispatchWorldDependentTests, "Artillery.Barrage.Barrage Dispatch with World Tests",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
-	UWorld* TestWorld;
+	FTestWorldWrapper TestWorldWrapper;
 UBarrageDispatch* BarrageDispatch;
 END_DEFINE_SPEC(FBarrageDispatchWorldDependentTests)
 void FBarrageDispatchWorldDependentTests::Define()
@@ -708,19 +707,13 @@ void FBarrageDispatchWorldDependentTests::Define()
 	BeforeEach([this]()
 		{
 			// Create a new world for testing
-			TestWorld = UWorld::CreateWorld(EWorldType::Game, false);
-			TestTrue("Test world should be created", TestWorld != nullptr);
+			TestWorldWrapper.CreateTestWorld(EWorldType::Game);
+			UWorld* TestWorld = TestWorldWrapper.GetTestWorld();
+			TestNotNull("Test world should be created", TestWorld);
 
-			if (TestWorld)
+			if (TestWorld) 
 			{
-				FWorldContext& WorldContext = GEngine->CreateNewWorldContext(EWorldType::Game);
-				WorldContext.SetCurrentWorld(TestWorld);
-
-				// Initialize the world
-				FURL URL;
-				TestWorld->InitializeActorsForPlay(URL);
-				TestWorld->BeginPlay();
-
+				TestWorldWrapper.BeginPlayInTestWorld();
 				BarrageDispatch = TestWorld->GetSubsystem<UBarrageDispatch>();
 				TestNotNull("BarrageDispatch subsystem should be created", BarrageDispatch);
 			}
@@ -730,7 +723,6 @@ void FBarrageDispatchWorldDependentTests::Define()
 		{
 			It("Should initialize subsystem correctly", [this]()
 				{
-					TestTrue("SelfPtr should be set after initialization", UBarrageDispatch::SelfPtr != nullptr);
 					TestTrue("Thread accumulator not be 0", BarrageDispatch->ThreadAccTicker != 0);
 					TestTrue("Worker thread accumulator not be 0", BarrageDispatch->WorkerThreadAccTicker != 0);
 				});
@@ -747,6 +739,8 @@ void FBarrageDispatchWorldDependentTests::Define()
 			It("Should create a complex static mesh from an Actor with a UStaticMeshComponent", [this]()
 				{
 					FSkeletonKey OutKey;
+					UWorld* TestWorld = TestWorldWrapper.GetTestWorld();
+
 					AActor* TestActor = TestWorld->SpawnActor<AActor>();
 					UStaticMeshComponent* MeshComponent = NewObject<UStaticMeshComponent>(TestActor);
 					MeshComponent->SetStaticMesh(LoadObject<UStaticMesh>(MeshComponent, TEXT("/Artillery/TestMeshes/SM_Chair.SM_Chair")));
@@ -764,12 +758,8 @@ void FBarrageDispatchWorldDependentTests::Define()
 
 	AfterEach([this]()
 		{
-			if (TestWorld)
-			{
-				TestWorld->DestroyWorld(false);
-				GEngine->DestroyWorldContext(TestWorld);
-				TestWorld = nullptr;
-				BarrageDispatch = nullptr;
-			}
+			TestWorldWrapper.DestroyTestWorld(true);
+			TestWorldWrapper.ForwardErrorMessages(this);
+			BarrageDispatch = nullptr;
 		});
 }

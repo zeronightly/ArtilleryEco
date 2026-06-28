@@ -45,7 +45,7 @@ public class Cabling : ModuleRules
             }
         );
         
-        bEnableExceptions = true;
+        
         bool bHasGameInputSupport = HasGameInputSupport(Target);
         System.Console.WriteLine("Known support: " + bHasGameInputSupport);
         string gdkpath = Path.Combine(PluginDirectory, "GDKDependency", "GameKit", "Include");

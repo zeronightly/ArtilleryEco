@@ -1,0 +1,3 @@
+Probably shouldn't have called this geometry, but it's actually quite a bit of what I use comp geom for - finding shit to shoot, characterizing what's in a zone, and then figuring out how to best shoot it. You'd be astonished by how far you can get with just A*, a convex hull algorithm, and some voronois. The rest of this has to do with the way a player interacts with space and the geometry of player movement. This is below the level we'd normally call 3Cs, down in the actual math of stuff, but what I've increasingly learned is that small changes at this level have enormous effects.
+
+--JMK

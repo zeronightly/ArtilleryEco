@@ -30,11 +30,11 @@ public:
 	virtual void EndPlay(EEndPlayReason::Type Reason) override;
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 
-	bool ShouldTickWithExampleSubsystem() const;
+	bool ShouldTickWithSubsystem() const;
 	
 	// If this will register itself with the UMegafunkUtilsAnimSubsystemExample. You don't need to use that if you want to replace it!
 	UPROPERTY(EditAnywhere)
-	uint8 bRegisterWithExampleWorldSubsystem : 1 = true;
-	
+	uint8 bRegisterWithWorldSubsystem : 1 = true;
+	uint64 HighestFrameSeen = 0;
 	uint8 bDidRegisterWithExampleSubsystem : 1 = false;
 };

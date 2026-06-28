@@ -5,9 +5,8 @@
 #include "CoreMinimal.h"
 #include "Templates/SubclassOf.h"
 #include "UObject/UnrealType.h"
-#include "Engine/DataTable.h"
-#include "AttributeSet.h"
-#include "Containers/CircularBuffer.h"
+#include "Structures/FixedWidthCircularBuffer.h"
+#include "Structures/ConcurrencyTypes/TimeCoheredReadHead.h"
 
 #include "ConservedAttribute.generated.h"
 
@@ -18,70 +17,80 @@
  */
 //TODO: do we need to break the GAS dependency? It's forcing a lot of unneeded stuff.
 USTRUCT(BlueprintType)
-struct ARTILLERYRUNTIME_API FConservedAttributeData : public FGameplayAttributeData
+struct ARTILLERYRUNTIME_API FConservedAttributeData
 {
 	GENERATED_BODY()
-	TCircularBuffer<double> CurrentHistory = TCircularBuffer<double>(128);
-	TCircularBuffer<double> RemoteHistory = TCircularBuffer<double>(128);
-	TCircularBuffer<double> BaseHistory = TCircularBuffer<double>(128);
-
-	virtual void SetCurrentValue(float NewValue) override {
-		SetCurrentValue(static_cast<double>(NewValue));
-	};
-
+	
+	using Buff = TFixedCircular<double, 32>;
+	virtual ~FConservedAttributeData() = default;
+	Buff CurrentHistory = Buff();
+	Buff BaseHistory = Buff();
+	
 	virtual void SetCurrentValue(double NewValue) {
-		CurrentHistory[CurrentHistory.GetNextIndex(CurrentHead)] = CurrentValue;
-		CurrentValue = NewValue;
-		++CurrentHead;
+		CurrentHistory[CurrentHistory.GetNextIndex(heads.CurrentHead)] = state.CurrentValue.Read();
+		thread_local auto THREAD_Key = Keys.GenerateMyID();
+		state.CurrentValue.Write(NewValue, THREAD_Key);
+		++heads.CurrentHead;
 	};
 
+	virtual double GetCurrentValue() {
+		return state.CurrentValue.Read();
+	};
+	
 	virtual void AddToCurrentValue(double AddValue)
 	{
-		SetCurrentValue(CurrentValue + AddValue);
+		SetCurrentValue(state.CurrentValue.Read() + AddValue);
 	}
-
-	virtual void SetRemoteValue(float NewValue) {
-		SetRemoteValue(static_cast<double>(NewValue));
+	
+	virtual double GetBaseValue() {
+		return state.BaseValue;
 	};
 	
-	virtual void SetRemoteValue(double NewValue) {
-		RemoteHistory[RemoteHistory.GetNextIndex(RemoteHead)] = NewValue;
-		++RemoteHead;
-	};
-	
-	virtual void SetBaseValue(float NewValue) override {
+	virtual void SetBaseValue(float NewValue) {
 		SetBaseValue(static_cast<double>(NewValue));
 	};
 
 	virtual void SetBaseValue(double NewValue) {
-		BaseHistory[BaseHistory.GetNextIndex(BaseHead)] = BaseValue;
-		BaseValue = NewValue;
-		++BaseHead;
+		BaseHistory[BaseHistory.GetNextIndex(heads.BaseHead)] = state.BaseValue;
+		state.BaseValue = NewValue;
+		++heads.BaseHead;
 	};
 
 	double GetPriorValue()
 	{
-		return CurrentHistory[CurrentHistory.GetNextIndex(CurrentHead-2)]; // ugh
+		return CurrentHistory[CurrentHistory.GetNextIndex(heads.CurrentHead-2)]; // ugh
 	}
 	
 	double operator*(FConservedAttributeData const& rhs) 
 	{ 
-		return CurrentValue * rhs.CurrentValue; // this is a double op.
+		return state.CurrentValue.Read() * rhs.state.CurrentValue.Read(); // this is a double op.
 	};
 	
 	double operator*(int const& rhs) 
 	{ 
-		return CurrentValue * rhs; // this is a double op.
+		return state.CurrentValue.Read() * rhs; // this is a double op.
 	}
 	
 	double operator*(uint64 const& rhs) 
 	{ 
-		return CurrentValue * rhs; // this is a double op.
+		return state.CurrentValue.Read() * rhs; // this is a double op.
 	}
 	
 protected:
-	uint64_t BaseHead = 0;
-	uint64_t CurrentHead = 0;
-	uint64_t RemoteHead = 0;
+	
+	struct indexes
+	{
+		long long volatile CurrentHead = 0;
+		long long BaseHead = 0;
+	};
+	
+	struct values
+	{
+		FTimedArray CurrentValue;
+		double BaseValue = 0;
+	};
+	values state;
+	indexes heads;
+	FArrayGrouping Keys;
 };
 

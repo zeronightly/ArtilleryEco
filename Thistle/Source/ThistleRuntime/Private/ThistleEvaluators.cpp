@@ -13,28 +13,30 @@ void FThistleGetPlayerKey::Tick(FStateTreeExecutionContext& Context, const float
 {
 	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 	//TODO: be great to have a version that doesn't go boom.
-	InstanceData.OutputKey = UArtilleryLibrary::GetLocalPlayerKey_LOW_SAFETY();
+	InstanceData.OutputKey = UArtilleryLibrary::GetLocalPlayerKey_LOW_SAFETY(UArtilleryDispatch::Get(Context.GetWorld()));
 }
 
 void FThistleKeyToRelationship::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
 	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 	bool found = false;
-	InstanceData.OutputKey = UArtilleryLibrary::implK2_GetIdentity(InstanceData.InputKey, InstanceData.Relationship,found);
+	InstanceData.OutputKey = UArtilleryLibrary::implK2_GetIdentity(UArtilleryDispatch::Get(Context.GetWorld()), InstanceData.InputKey, InstanceData.Relationship,found);
 	InstanceData.Found = found;
 }
 
 void FThistleSphereCast::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
 	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
-	if ((UArtilleryLibrary::GetTotalsTickCount() % InstanceData.TicksBetweenCastRefresh) == 0 &&
-	UBarrageDispatch::SelfPtr)
+	auto Barrage = Context.GetWorld()->GetSubsystem<UBarrageDispatch>();
+	auto Artillery = Context.GetWorld()->GetSubsystem<UArtilleryDispatch>();
+	if ((UArtilleryLibrary::GetTotalsTickCount(Context.GetWorld()) % InstanceData.TicksBetweenCastRefresh) == 0 &&
+	Barrage)
 	{
 	bool Shucked = false;
-	FVector Source = InstanceData.Source.ShuckPoi(Shucked);
+	FVector Source = InstanceData.Source.ShuckPoi(Context,Shucked);
 	if (!Shucked) { return; }
 	
-	FVector Target = InstanceData.Target.ShuckPoi(Shucked);
+	FVector Target = InstanceData.Target.ShuckPoi(Context, Shucked);
 	// ReSharper disable once CppRedundantControlFlowJump
 	if (!Shucked) { return; }
 	
@@ -42,21 +44,21 @@ void FThistleSphereCast::Tick(FStateTreeExecutionContext& Context, const float D
 	const double Length = ToFrom.Length() + 1;
 
 		if (InstanceData.SourceBodyKey_SetOrRegret.IsValid()
-			&& UArtilleryDispatch::SelfPtr->IsLiveKey(InstanceData.SourceBodyKey_SetOrRegret) != DEAD)
+			&& Artillery->IsLiveKey(InstanceData.SourceBodyKey_SetOrRegret) != DEAD)
 		{
-			auto Bind = 	UBarrageDispatch::SelfPtr->GetShapeRef(InstanceData.SourceBodyKey_SetOrRegret);
+			auto Bind = 	Barrage->GetShapeRef(InstanceData.SourceBodyKey_SetOrRegret);
 			if (Bind)
 			{
-				JPH::IgnoreSingleBodyFilter StopHittingYourself = UBarrageDispatch::SelfPtr->GetFilterToIgnoreSingleBody(
+				JPH::IgnoreSingleBodyFilter StopHittingYourself = Barrage->GetFilterToIgnoreSingleBody(
 					Bind->KeyIntoBarrage);
-				UBarrageDispatch::SelfPtr->SphereCast(InstanceData.Radius, Length, Source, ToFrom.GetSafeNormal(),
+				Barrage->SphereCast(InstanceData.Radius, Length, Source, ToFrom.GetSafeNormal(),
 													  InstanceData.HitResultCache, BroadPhaseFilter,
 													  ObjectLayerFilter, StopHittingYourself);
 			}
 		}
 		else
 		{
-			UBarrageDispatch::SelfPtr->SphereCast(InstanceData.Radius, Length, Source, ToFrom.GetSafeNormal(),
+			Barrage->SphereCast(InstanceData.Radius, Length, Source, ToFrom.GetSafeNormal(),
 			                                      InstanceData.HitResultCache, BroadPhaseFilter,
 			                                      ObjectLayerFilter, JPH::BodyFilter());
 		}
@@ -69,10 +71,10 @@ void FThistleDistanceToPOI::Tick(FStateTreeExecutionContext& Context, const floa
 	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 
 	bool bSourceSuccess = false;
-	const FVector SourceLocation = InstanceData.Source.ShuckPoi(bSourceSuccess);
+	const FVector SourceLocation = InstanceData.Source.ShuckPoi(Context,bSourceSuccess);
 
 	bool bTargetSuccess = false;
-	const FVector TargetLocation = InstanceData.Target.ShuckPoi(bTargetSuccess);
+	const FVector TargetLocation = InstanceData.Target.ShuckPoi(Context,bTargetSuccess);
 
 	if (bSourceSuccess && bTargetSuccess)
 	{

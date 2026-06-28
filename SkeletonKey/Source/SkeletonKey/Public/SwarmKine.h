@@ -110,7 +110,7 @@ public:
 				QueueRemoveInstanceById(m);
 				KeyToMesh->erase(Target);
 				TObjectPtr<USceneComponent> Out;
-				while(KeyToSceneComponent->RemoveAndCopyValue(Target, Out))
+				while(Out && KeyToSceneComponent->RemoveAndCopyValue(Target, Out))
 				{
 					Out->ClearInternalFlags(EInternalObjectFlags::Async);
 					Out->ConditionalBeginDestroy();

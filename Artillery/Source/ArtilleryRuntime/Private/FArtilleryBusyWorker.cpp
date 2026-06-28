@@ -5,6 +5,8 @@
 #include "LowLogTimeAndRate.h"
 #include "ArtilleryBPLibs.h"
 #include "BarrageDispatch.h"
+#include "SkeletonTypes.h"
+#include "TransformDispatch.h"
 #include "Containers/TripleBuffer.h"
 
 FArtilleryBusyWorker::FArtilleryBusyWorker()
@@ -20,9 +22,9 @@ FArtilleryBusyWorker::~FArtilleryBusyWorker()
 
 bool FArtilleryBusyWorker::Init()
 {
-	//you cannot reorder these. it is a magic ordering put in place for a hack. 
+	//you cannot reorder these. it is a magic ordering put in place for a hack.
 	UE_LOG(LogTemp, Display, TEXT("Artillery:BusyWorker: Initializing Artillery thread"));
-	running = true;
+	// NB: running is monotonic now (true at construction). Do NOT set it true here -- see header.
 	return true;
 }
 
@@ -161,7 +163,7 @@ void FArtilleryBusyWorker::RunStandardFrameSim(bool& missedPrior, uint64_t& curr
 void FArtilleryBusyWorker::ProcessRequestRouterBusyWorkerThread()
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(FArtilleryBusyWorker::ProcessRequestRouterBusyWorkerThread)
-
+	
 	if (RequestRouter)
 	{
 		for (F_INeedA::FeedMap& WorkerFeedMap : RequestRouter->BusyWorkerAcc)
@@ -183,7 +185,7 @@ void FArtilleryBusyWorker::ProcessRequestRouterBusyWorkerThread()
 							}
 							else
 							{
-								CustomTimer<"ReferenceInitAttemptedOnInited"> RateCheck;
+								//CustomTimer<"ReferenceInitAttemptedOnInited"> RateCheck;
 							}
 						}
 						break;
@@ -194,11 +196,11 @@ void FArtilleryBusyWorker::ProcessRequestRouterBusyWorkerThread()
 						break;
 					case ArtilleryRequestType::FakeTransformUpdate:
 						{
-							if (UBarrageDispatch::SelfPtr && UTransformDispatch::SelfPtr &&
-								UTransformDispatch::SelfPtr->GetKineByObjectKey(Request.SourceOrSelf))
+							if (ContingentPhysicsLinkage && UTransformLink &&
+								UTransformLink->GetKineByObjectKey(Request.SourceOrSelf))
 							{
-								TSharedPtr<TransformUpdatesForGameThread> HoldOpenTransformPump =  UBarrageDispatch::SelfPtr->GameTransformPump;
-								if (HoldOpenTransformPump)
+								TSharedPtr<TransformUpdatesForGameThread> HoldOpenTransformPump =  ContingentPhysicsLinkage->GameTransformPump;
+								if (HoldOpenTransformPump)	
 								{
 									HoldOpenTransformPump->AddMove(
 										Request.SourceOrSelf,
@@ -253,7 +255,6 @@ void FArtilleryBusyWorker::RunFrameProcessingLoop(bool missedPrior, uint64_t cur
 			*/
 			sent = true;
 			TickliteNow = ContingentInputECSLinkage->Now(); // this updates ONCE PER CYCLE. ONCE. THIS IS INTENDED.
-			CustomTimer<"BusyWorkerCoreLoopAfterFrameSim"> TimerSimless;
 			ProcessRequestRouterBusyWorkerThread();
 			//tag container save-off currently happens before player and player-like locomotion.
 			//this SHOULD be the right place, by my limited reasoning, but I could be wrong.
@@ -274,12 +275,10 @@ void FArtilleryBusyWorker::RunFrameProcessingLoop(bool missedPrior, uint64_t cur
 			else // yeah, I know it's optional, but stylistically, it's important.
 			{
 				{
-					CustomTimer<"BusyWorkerPhysicsAll"> TimerPhysAll;
 					ContingentPhysicsLinkage->StackUp();
 					StartTicklitesApply->Trigger();
 					StartRunAhead->Trigger();
 					{
-						CustomTimer<"BusyWorkerPhysicsStep"> TimerPhys;
 						ContingentPhysicsLinkage->StepWorld(TickliteNow, SeqNumber);
 					}
 				}
@@ -287,12 +286,9 @@ void FArtilleryBusyWorker::RunFrameProcessingLoop(bool missedPrior, uint64_t cur
 				ContingentPhysicsLinkage->BroadcastContactEvents();
 				if (ParticleSystemPointer)
 				{
-					ParticleSystemPointer->ArtilleryTick(); //currently a no-op.
+					ParticleSystemPointer->ArtilleryTick(); 
 				}
-				if (SkeletalMeshSystemPointer)
-				{
-					SkeletalMeshSystemPointer->ArtilleryTick();
-				}
+
 				if (ProjectileSystemPointer)
 				{
 					ProjectileSystemPointer->ArtilleryTick();
@@ -302,6 +298,7 @@ void FArtilleryBusyWorker::RunFrameProcessingLoop(bool missedPrior, uint64_t cur
 					EventLogSystemPointer->ArtilleryTick();
 				}
 			}
+
 		}
 
 		//unlike cabling, we do our time keeping HERE. It may be worth switching cabling to also follow this.
@@ -366,7 +363,7 @@ uint32 FArtilleryBusyWorker::Run()
 	//where we can, so we're trying to hide the barrage dependency here in a sense. We can't fully, but.
 	UArtilleryDispatch* ArtilleryDispatch = ContingentInputECSLinkage->GetWorld()->GetSubsystem<UArtilleryDispatch>();
 	ArtilleryDispatch->ThreadSetup();
-
+	
 	//Run loop is in here.
 	RunFrameProcessingLoop(missedPrior, currentIndexCabling, burstDropDetected, sent, LastIncrementWindow, lsbTime,
 	                       SendHertzFactor, Period, HalfStep, ArtilleryDispatch);

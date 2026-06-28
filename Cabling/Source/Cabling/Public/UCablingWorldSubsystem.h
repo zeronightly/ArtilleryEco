@@ -24,8 +24,6 @@ public:
 	UCablingWorldSubsystem()
 	{
 	}
-
-	static inline UCablingWorldSubsystem* SelfPtr = nullptr;
 	
 	//in general, this should be called very seldom, as it is a DESTRUCTIVE
 	//and slightly unsafe operation. calling it outside of postinitialize

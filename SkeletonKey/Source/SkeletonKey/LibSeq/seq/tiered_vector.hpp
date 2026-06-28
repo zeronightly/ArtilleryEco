@@ -597,16 +597,10 @@ namespace seq
 				}
 				else if (s > size) {
 					cbuffer_pos i = size;
-					// Make sure to destroy constructed values in case of exception
-					try {
+
 						for (; i < s; ++i)
 							helper.construct(&(*this)[i]);
-					}
-					catch (...) {
-						for (cbuffer_pos j = size; j < i; ++j)
-							destroy_ptr(&(*this)[j]);
-						throw;
-					}
+					
 				}
 				size = s;
 			}
@@ -639,13 +633,7 @@ namespace seq
 				// only works for non full array
 				if (--begin < 0)
 					begin = max_size1;
-				try {
 					construct_ptr(buffer() + begin, std::forward<Args>(args)...);
-				}
-				catch (...) {
-					begin = (begin + 1) & max_size1;
-					throw;
-				}
 				++size;
 				return buffer() + begin;
 			}
@@ -715,18 +703,13 @@ namespace seq
 			template<class Helper>
 			void push_front_n(cbuffer_pos n, const Helper& helper)
 			{
-				try {
 					for (cbuffer_pos i = 0; i < n; ++i) {
 						if (--begin < 0)
 							begin = max_size1;
 						helper.construct(buffer() + begin);
 						++size;
 					}
-				}
-				catch (...) {
-					begin = (begin + 1) & max_size1;
-					throw;
-				}
+				
 			}
 
 			// Move buffer content toward the right by 1 element
@@ -850,16 +833,9 @@ namespace seq
 
 				T* res = &(*this)[pos];
 				if constexpr (relocatable) {
-					try {
+
 						construct_ptr(res, std::forward<Args>(args)...);
-					}
-					catch (...) {
-						// No choice but to destroy all values after pos and reduce the size in order to leave the buffer in a valid state
-						for (int i = pos + 1; i < size; ++i)
-							destroy_ptr(&(*this)[i]);
-						size = pos;
-						throw;
-					}
+					
 				}
 				else {
 					// For non relocatable types, use move assignment to provide basic exception guarantee
@@ -896,16 +872,8 @@ namespace seq
 				}
 
 				if constexpr (relocatable) {
-					try {
 						construct_ptr(&(*this)[pos], std::forward<Args>(args)...);
-					}
-					catch (...) {
-						// No choice but to destroy all values after pos and reduce the size in order to leave the buffer in a valid state
-						for (int i = pos + 1; i < size; ++i)
-							destroy_ptr(&(*this)[i]);
-						size = pos;
-						throw;
-					}
+					
 				}
 				else {
 					// For non relocatable types, use move assignment to provide basic exception guarantee
@@ -937,16 +905,8 @@ namespace seq
 
 				p = &(*this)[pos - 1];
 				if constexpr (relocatable) {
-					try {
 						construct_ptr(p, std::forward<Args>(args)...);
-					}
-					catch (...) {
-						// No choice but to destroy all values after pos and reduce the size in order to leave the buffer in a valid state
-						for (int i = pos; i < size; ++i)
-							destroy_ptr(&(*this)[i]);
-						size = pos - 1;
-						throw;
-					}
+					
 				}
 				else {
 					// For non relocatable types, use move assignment to provide basic exception guarantee
@@ -1037,29 +997,20 @@ namespace seq
 					destroy_ptr(&(*this)[pos]);
 
 				if (pos > size / 2) {
-					// move elems after pos
-					try {
+
 						--size;
 						move_erase_right_1(pos);
-					}
-					catch (...) {
-						++size;
-						throw;
-					}
+					
 
 					if constexpr (!relocatable)
 						destroy_ptr(&(*this)[size]);
 				}
 				else {
 					// move elems after pos
-					try {
+
 						--size; // decrement size
 						move_erase_left_1(pos);
-					}
-					catch (...) {
-						++size;
-						throw;
-					}
+					
 
 					if constexpr (!relocatable)
 						destroy_ptr(&(*this)[0]);
@@ -1077,28 +1028,19 @@ namespace seq
 					destroy_ptr(&(*this)[pos]);
 
 				if (pos > size / 2) {
-					// move elems after pos
-					try {
+
 						--size;
 						move_erase_right_1(pos);
-					}
-					catch (...) {
-						++size;
-						throw;
-					}
+
 					if constexpr (!relocatable)
 						destroy_ptr(&(*this)[size]);
 				}
 				else {
 					// move elems after pos
-					try {
+
 						--size; // decrement size
 						move_erase_left_1(pos);
-					}
-					catch (...) {
-						++size;
-						throw;
-					}
+					
 					if constexpr (!relocatable)
 						destroy_ptr(&(*this)[0]);
 					begin = (begin + 1) & (max_size1); // increment begin
@@ -1114,28 +1056,19 @@ namespace seq
 				if constexpr (relocatable)
 					destroy_ptr(&(*this)[pos]);
 				if (pos > size / 2) {
-					// move elems after pos
-					try {
+
 						--size;
 						move_erase_right_1(pos);
-					}
-					catch (...) {
-						++size;
-						throw;
-					}
+					
 					if constexpr (!relocatable)
 						destroy_ptr(&(*this)[size]);
 				}
 				else {
 					// move elems after pos
-					try {
+
 						--size; // decrement size
 						move_erase_left_1(pos);
-					}
-					catch (...) {
-						++size;
-						throw;
-					}
+					
 					if constexpr (!relocatable)
 						destroy_ptr(&(*this)[0]);
 					begin = (begin + 1) & (max_size1); // increment begin
@@ -1409,19 +1342,9 @@ namespace seq
 						size_type end = pos + static_cast<size_t>(new_bucket_size);
 						if (end > end_pos)
 							end = end_pos;
-
-						// If this throw, d_size won't be updated (which is fine)
-						try {
+						
 							other.for_each(pos, end, [&](const T& v) { construct_ptr(ptr++, v); });
-						}
-						catch (...) {
-							// Destroy constructed elements
-							--ptr;
-							for (T* p = current->buffer(); p != ptr; ++p)
-								destroy_ptr(p);
-							this->remove_back_bucket();
-							throw;
-						}
+						
 						size_type copied = end - pos;
 						pos += copied;
 						d_size += copied;
@@ -1504,9 +1427,6 @@ namespace seq
 					if (end > end_pos)
 						end = end_pos;
 
-					// If this throw, d_size won't be updated (which is fine)
-					try {
-
 						other.for_each_bucket(pos, end, front_size, [&ptr, &bindex, &other](size_t index, T& v) {
 							construct_ptr(ptr++, std::move(v));
 							if (index != bindex) {
@@ -1515,16 +1435,6 @@ namespace seq
 								bindex = index;
 							}
 						});
-					}
-					catch (...) {
-						// Destroy constructed values
-						--ptr;
-						for (T* p = current->buffer(); p != ptr; ++p)
-							destroy_ptr(p);
-						this->remove_back_bucket();
-						other.destroy_all();
-						throw;
-					}
 
 					size_type copied = end - pos;
 					pos += copied;
@@ -1578,13 +1488,8 @@ namespace seq
 			{
 				BucketType* res = reinterpret_cast<BucketType*>(get_allocator().allocate(BucketType::start_data_T + static_cast<size_t>(max_size)));
 				// Might throw
-				try {
 					construct_ptr(res, max_size, val);
-				}
-				catch (...) {
-					get_allocator().deallocate(reinterpret_cast<T*>(res), BucketType::start_data_T + static_cast<size_t>(max_size));
-					throw;
-				}
+				
 				return res;
 			}
 
@@ -1827,13 +1732,8 @@ namespace seq
 				if ((d_buckets.empty())) {
 					bucket->init_front();
 				}
-				try {
 					d_buckets.push_back(bucket);
-				}
-				catch (...) {
-					destroy_bucket(bucket);
-					throw;
-				}
+				
 				return bucket;
 			}
 
@@ -1843,13 +1743,8 @@ namespace seq
 				// bucket is full, create a new one
 				BucketType* bucket = make_bucket(d_bucket_size);
 				bucket->init_front();
-				try {
 					d_buckets.insert(d_buckets.begin(), bucket);
-				}
-				catch (...) {
-					destroy_bucket(bucket);
-					throw;
-				}
+				
 				return bucket;
 			}
 
@@ -1958,15 +1853,12 @@ namespace seq
 					// insert into full first bucket
 					// Might throw, fine
 					T tmp = d_buckets[0]->insert_pop_front(index, std::forward<Args>(args)...);
-					try {
+
 						res = create_front_bucket()->emplace_back(std::move(tmp));
-					}
-					catch (...) {
+					
 						// check if front buffer is empty
 						if (d_buckets[0]->size == 0)
 							this->remove_front_bucket();
-						throw;
-					}
 					if (StoreBackValues) {
 						d_buckets[0].update();
 						d_buckets[1].update();
@@ -2003,14 +1895,8 @@ namespace seq
 						if (StoreBackValues)
 							d_buckets[0].update();
 						bucket = create_front_bucket();
-						try {
 							bucket->emplace_back(std::move(tmp));
-						}
-						catch (...) {
-							// remove front buffer
-							this->remove_front_bucket();
-							throw;
-						}
+						
 						if (StoreBackValues)
 							d_buckets[0].update();
 					}
@@ -2035,15 +1921,7 @@ namespace seq
 					T tmp = bucket(bucket_index)->insert_pop_back(index, std::forward<Args>(args)...);
 					if (StoreBackValues)
 						d_buckets[bucket_index].update();
-					try {
 						res = create_back_bucket()->emplace_back(std::move(tmp));
-					}
-					catch (...) {
-						// Remove empty back bucket
-						if (d_buckets.back()->size == 0)
-							remove_back_bucket();
-						throw;
-					}
 					if (StoreBackValues)
 						d_buckets.back().update();
 				}
@@ -2289,7 +2167,6 @@ namespace seq
 						size_type new_bucket_count = missing / static_cast<size_t>(bucket_size());
 						cbuffer_pos last_bucket_size = static_cast<cbuffer_pos>(missing % static_cast<size_t>(bucket_size()));
 
-						try {
 							// add full buckets
 							for (size_type i = 0; i < new_bucket_count; ++i) {
 								create_back_bucket()->resize(static_cast<size_t>(bucket_size()), helper);
@@ -2300,12 +2177,7 @@ namespace seq
 								create_back_bucket()->resize(last_bucket_size, helper);
 								d_size += static_cast<size_t>(last_bucket_size);
 							}
-						}
-						catch (...) {
-							if (d_buckets.size() > 1 && d_buckets.back()->size == 0)
-								remove_back_bucket();
-							throw;
-						}
+						
 					}
 				}
 				else {
@@ -2367,7 +2239,6 @@ namespace seq
 						size_type new_bucket_count = missing / static_cast<size_t>(bucket_size());
 						cbuffer_pos first_bucket_size = static_cast<cbuffer_pos>(missing % static_cast<size_t>(bucket_size()));
 
-						try {
 							// add full buckets
 							for (size_type i = 0; i < new_bucket_count; ++i) {
 								create_front_bucket()->resize(static_cast<size_t>(bucket_size()), helper);
@@ -2379,12 +2250,7 @@ namespace seq
 								create_front_bucket()->push_front_n(first_bucket_size, helper);
 								d_size += static_cast<size_t>(first_bucket_size);
 							}
-						}
-						catch (...) {
-							if (d_buckets.size() > 1 && d_buckets[0]->size == 0)
-								remove_front_bucket();
-							throw;
-						}
+						
 					}
 				}
 				else {
@@ -2675,12 +2541,8 @@ namespace seq
 		{
 			RebindAlloc<bucket_manager> alloc = al;
 			bucket_manager* res = alloc.allocate(1);
-			try {
 				construct_ptr(res, std::forward<Args>(args)...);
-			}
-			catch (...) {
-				alloc.deallocate(res, 1);
-			}
+			
 			return res;
 		}
 		// Destroy/deallocate a BucketManager object
@@ -3437,16 +3299,12 @@ namespace seq
 		SEQ_ALWAYS_INLINE auto at(size_type pos) const -> const T&
 		{
 			// random access
-			if (pos >= size())
-				throw std::out_of_range("");
 			return (manager()->at(pos));
 		}
 		/// @brief Returns a reference to the element at specified location pos, with bounds checking.
 		SEQ_ALWAYS_INLINE auto at(size_type pos) -> T&
 		{
 			// random access
-			if (pos >= size())
-				throw std::out_of_range("");
 			return (manager()->at(pos));
 		}
 		/// @brief Returns a reference to the element at specified location pos, without bounds checking.

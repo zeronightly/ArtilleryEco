@@ -10,7 +10,7 @@
 #include "Containers/CircularBuffer.h"
 #include "ConservedKey.generated.h"
 
-static constexpr uint32 CONSERVED_ATTRIBUTE_BUFFER_SIZE = 128;
+static constexpr uint32 CONSERVED_KEY_ATTRIBUTE_BUFFER_SIZE = 32;
 
 /**
  * Conserved key attributes record their last CONSERVED_ATTRIBUTE_BUFFER_SIZE changes.
@@ -20,10 +20,8 @@ USTRUCT(BlueprintType)
 struct ARTILLERYRUNTIME_API FConservedAttributeKey
 {
 	GENERATED_BODY()
-	
-	TCircularBuffer<FSkeletonKey> CurrentHistory = TCircularBuffer<FSkeletonKey>(CONSERVED_ATTRIBUTE_BUFFER_SIZE);
-	TCircularBuffer<FSkeletonKey> RemoteHistory = TCircularBuffer<FSkeletonKey>(CONSERVED_ATTRIBUTE_BUFFER_SIZE);
-	TCircularBuffer<FSkeletonKey> BaseHistory = TCircularBuffer<FSkeletonKey>(CONSERVED_ATTRIBUTE_BUFFER_SIZE);
+	TFixedCircular<FSkeletonKey, CONSERVED_KEY_ATTRIBUTE_BUFFER_SIZE> CurrentHistory = TFixedCircular<FSkeletonKey, CONSERVED_KEY_ATTRIBUTE_BUFFER_SIZE>();
+	TFixedCircular<FSkeletonKey, CONSERVED_KEY_ATTRIBUTE_BUFFER_SIZE> BaseHistory = TFixedCircular<FSkeletonKey, CONSERVED_KEY_ATTRIBUTE_BUFFER_SIZE>();
 
 	UPROPERTY(BlueprintReadOnly, Category = "Attribute")
 	FSkeletonKey BaseValue;
@@ -37,10 +35,6 @@ struct ARTILLERYRUNTIME_API FConservedAttributeKey
 		++CurrentHead;
 	}
 	
-	void SetRemoteValue(FSkeletonKey NewValue) {
-		RemoteHistory[RemoteHistory.GetNextIndex(RemoteHead)] = NewValue;
-		++RemoteHead;
-	}
 	
 	void SetBaseValue(FSkeletonKey NewValue) {
 		BaseHistory[BaseHistory.GetNextIndex(BaseHead)] = BaseValue;
@@ -51,6 +45,5 @@ struct ARTILLERYRUNTIME_API FConservedAttributeKey
 protected:
 	uint64_t BaseHead = 0;
 	uint64_t CurrentHead = 0;
-	uint64_t RemoteHead = 0;
 };
 

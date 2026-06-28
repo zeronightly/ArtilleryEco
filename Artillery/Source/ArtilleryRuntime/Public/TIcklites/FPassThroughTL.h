@@ -45,20 +45,19 @@ struct FPassthroughAttribute : public FTickECSOnly
 		}
 	}
 
-	static void CreatePassthrough(FSkeletonKey me, FSkeletonKey destination, TArray<AttribKey> attribs,
+	static void CreatePassthrough(TickliteWorker* TickliteWorker, FSkeletonKey me, FSkeletonKey destination, TArray<AttribKey> attribs,
 	                              ConditionFunction condition);
 };
 
 typedef FPassthroughAttribute FPTAttr;
 typedef Ticklites::Ticklite<FPTAttr> FPTAttr_TL;
 
-//TODO: this won't work for local multi testing, as the static will get set incorrectly despite being compile specified per type. the PIE
-//spins up a bunch of IN PROCESS COPIES so it just scrobbles everything.
-inline void FPassthroughAttribute::CreatePassthrough(FSkeletonKey me, FSkeletonKey destination,
+inline void FPassthroughAttribute::CreatePassthrough(TickliteWorker* TickliteWorker, FSkeletonKey me, FSkeletonKey destination,
                                                      TArray<AttribKey> attribs, ConditionFunction condition)
 {
-	ADispatch->RequestAddTicklite(new FPTAttr_TL(FPTAttr(me, destination, attribs, condition)),
-	                                            PASS_THROUGH);
+	
+	auto NewTicklite = new FPTAttr_TL(FPTAttr(me, destination, attribs, condition), TickliteWorker);
+	TickliteWorker->RequestAddTicklite(NewTicklite,PASS_THROUGH);
 }
 
 
@@ -98,7 +97,7 @@ struct FPassDamage : public FTickECSOnly
 		}
 	}
 
-	static void CreatePassthrough(FSkeletonKey me, FSkeletonKey destination, AttribKey Check = E_AttribKey::Health,
+	static void CreatePassthrough(TickliteWorker* TickliteWorker, FSkeletonKey me, FSkeletonKey destination, AttribKey Check = E_AttribKey::Health,
 	                              float Threshold = 0.0, bool Clear = true);
 };
 
@@ -106,11 +105,12 @@ typedef Ticklites::Ticklite<FPassDamage> FPTDam_TL;
 
 //TODO: this won't work for local multi testing, as the static will get set incorrectly despite being compile specified per type. the PIE
 //spins up a bunch of IN PROCESS COPIES so it just scrobbles everything.
-inline void FPassDamage::CreatePassthrough(FSkeletonKey me, FSkeletonKey destination, AttribKey Check, float Threshold,
+inline void FPassDamage::CreatePassthrough(TickliteWorker* TickliteWorker, FSkeletonKey me, FSkeletonKey destination, AttribKey Check, float Threshold,
                                            bool Clear)
 {
-	ADispatch->RequestAddTicklite( new FPTDam_TL(FPassDamage(me, destination, Check, Threshold, Clear)),
-	                              PASS_THROUGH);
+	auto NewTicklite = new FPTDam_TL(FPassDamage(me, destination, Check, Threshold, Clear), TickliteWorker);
+	TickliteWorker->RequestAddTicklite(NewTicklite, PASS_THROUGH);
+	
 }
 
 
@@ -150,13 +150,13 @@ struct FForwardDamageEvent : public FTickECSOnly
 		}
 	}
 
-	static void CreateForwarder(FSkeletonKey ShieldKey, FSkeletonKey ParentKey);
+	static void CreateForwarder(TickliteWorker* InTickliteWorker, FSkeletonKey ShieldKey, FSkeletonKey ParentKey);
 };
 
 typedef Ticklites::Ticklite<FForwardDamageEvent> FForwardDmg_TL;
 
-inline void FForwardDamageEvent::CreateForwarder(FSkeletonKey ShieldKey, FSkeletonKey ParentKey)
+inline void FForwardDamageEvent::CreateForwarder(TickliteWorker* InTickliteWorker, FSkeletonKey ShieldKey, FSkeletonKey ParentKey)
 {
 	// Run in normal phase to ensure we catch tags set by Resolvers in previous ticks/phases
-	ADispatch->RequestAddTicklite(new FForwardDmg_TL(FForwardDamageEvent(ShieldKey, ParentKey)), Normal);
+	InTickliteWorker->RequestAddTicklite(new FForwardDmg_TL(FForwardDamageEvent(ShieldKey, ParentKey), InTickliteWorker), Normal);
 }

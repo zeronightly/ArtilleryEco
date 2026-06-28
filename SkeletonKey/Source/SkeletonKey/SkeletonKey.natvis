@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+    <!--    In which I attempted to make a nice skeleton key natvis that shows the type by masking it,-->
+    <!--    SFIX_MASK_OUT = 0x0FFFFFFFFFFFFFFF,-->
+    <!--    SFIX_MASK_EXT = 0xF000000000000000,-->
+    <!--    SFIX_HASH_EXT = 0x00000000FFFFFFFF,-->
+    <Type Name="FSkeletonKey">
+        <DisplayString>
+            type={SKELLY(Obj &amp; SKELLY::SFIX_MASK_EXT),en} hash={Obj &amp; SKELLY::SFIX_HASH_EXT} meta={(Obj >> 32) &amp; SKELLY::SFIX_META_EXT } 
+        </DisplayString>
+        <Expand>
+            <Item Name="raw value">Obj</Item>
+        </Expand>
+    </Type>
+
+
+</AutoVisualizer>

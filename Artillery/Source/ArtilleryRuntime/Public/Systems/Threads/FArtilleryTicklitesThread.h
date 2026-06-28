@@ -5,6 +5,8 @@
 #include <Ticklite.h>
 
 #include <timeapi.h>
+
+#include "KeyToTextDispatch.h"
 #include "LowLogTimeAndRate.h"
 
 //this is a busy-style thread, which runs preset bodies of work in a specified order. Generally, the goal is that it never
@@ -58,7 +60,8 @@ class FArtilleryTicklitesWorker : public FRunnable
 	//This isn't super safe but like busy worker, ticklites only runs in one spot.
 	friend class UArtilleryDispatch;
 	ArtilleryTime LocalNow;
-
+	ITickHeavy* SkeletalMeshSystemPointer = nullptr;
+	UKeyToTextDispatch* TextStoragePointer = nullptr;
 	static const int GroupCount = TICKLITEPHASESCOUNT;
 	TickliteGroup ExecutionGroups[GroupCount];
 
@@ -125,7 +128,7 @@ public:
 		return FBarragePrimitive::IsNotNull(temp) ? temp : nullptr;
 	}
 	
-	FArtilleryTicklitesWorker(): LocalNow(0), DispatchOwner(nullptr), running(false)
+	FArtilleryTicklitesWorker(): LocalNow(0), DispatchOwner(nullptr), running(true)
 	{
 	}
 
@@ -204,7 +207,7 @@ public:
 		//Implementing this will not be easy, but it will suck a lot less than trying to do this with gameplay effects.
 		//This is one reason we advocate STRONGLY for the use of KEYS over references, as references to memmory location
 		//are not durable across rollbacks.
-		throw; 
+		return false;
 	}
 
 	virtual bool Init() override
@@ -215,7 +218,6 @@ public:
 		{
 			Group.reserve(1024);
 		}
-		running = true;
 		return true;
 	}
 	
@@ -253,6 +255,27 @@ public:
 						{
 							TickliteAdd(RouterQueue.AllocatedTicklite, RouterQueue.MyGroup);
 						}
+						else if (RouterQueue.GetType() == ArtilleryRequestType::FreeTextAndName)
+						{
+							if (TextStoragePointer)
+							{
+								TextStoragePointer->DeferDelete(RouterQueue.OwnerIfAny);
+							}
+						}
+						else if (RouterQueue.GetType() == ArtilleryRequestType::AddName)
+						{
+							if (TextStoragePointer)
+							{
+								TextStoragePointer->RegisterFName(RouterQueue.OwnerIfAny, RouterQueue.NameIfAny);
+							}
+						}
+						else if (RouterQueue.GetType() == ArtilleryRequestType::AddName)
+						{
+							if (TextStoragePointer)
+							{
+								TextStoragePointer->RegisterConstBlock(RouterQueue.OwnerIfAny, MakeShared<FString>(RouterQueue.TextIfAny));
+							}
+						}
 					}
 				}
 			}
@@ -260,12 +283,7 @@ public:
 	}
 
 	/*
-	 * as of 12/22/25, here's our sample timings. They don't make a ton of sense. I guess we're just getting hammered on cache misses?
-	 *	Average time for function id.TicklitesWorker is nanoseconds = '12218864' at roughly one call per '12219283.200000'.
-	 *	Average time for function id.TicklitesImmediatelyPostCalc is nanoseconds = '10444050' at roughly one call per '12219210.400000'.
-	 *	Average time for function id.TicklitesImmediatelyPreWait is nanoseconds = '6060117' at roughly one call per '12219216.000000'.
-	 *	Average time for function id.TicklitesWorkerPostWait is nanoseconds = '6009295' at roughly one call per '12219015.000000'.
-	 *	
+	 * Note the custom timer runs even in released builds - this is intentional and used for assessing fallbehind from logs of arbitrary playtester runs.	
 	 *
 	 */
 	//adding cadence is going to be quite annoying.
@@ -275,7 +293,7 @@ public:
 		DispatchOwner->ThreadSetup();
 		while(running) {
 			
-			CustomTimer<"TicklitesWorkerTotal"> Timer;
+			CustomTimer<"TicklitesWorker"> Timer;
 			
 			{
 				TRACE_CPUPROFILER_EVENT_SCOPE(FArtilleryTicklitesWorker: calculate groups)
@@ -289,18 +307,32 @@ public:
 			}
 			ProcessRequestRouterWorkerThread();
 			
+			if (SkeletalMeshSystemPointer)
 			{
-				TRACE_CPUPROFILER_EVENT_SCOPE(FArtilleryTicklitesWorker: Wait duration) 
-
-				CustomTimer<"TicklitesImmediatelyPreWait"> Tick;
+				SkeletalMeshSystemPointer->ArtilleryTick();
+			}
+			if (TextStoragePointer && TextStoragePointer->IsReady)
+			{
+				TextStoragePointer->ProcessDeletes(); 
+				// We wait as long as we can to perform the actual delete, the backing store is seq's threadsafe concmap
+				//And the FName lookup should graceful-fail while the block lookup uses threadsafe shared pointers.
+				//It's not super fast, but hopefully we don't need it to be. That's the big reason it's not part of the
+				//other artillery attribs
+				
+			}
+			
+			{
+				//tracking these waits completely fucks up UE insights.
+				//TRACE_CPUPROFILER_EVENT_SCOPE(FArtilleryTicklitesWorker: Wait duration) 
 				StartTicklitesApply->Wait();
 				StartTicklitesApply->Reset(); // we can run long on sim, not on apply.
 			}
-				CustomTimer<"TicklitesWorkerApply"> TimerPostWait;
+
 			
 			TRACE_CPUPROFILER_EVENT_SCOPE(FArtilleryTicklitesWorker: apply groups) 
 			for (auto& Group : ExecutionGroups)
 			{
+				TRACE_CPUPROFILER_EVENT_SCOPE(FArtilleryTicklitesWorker: per group) 
 				//this is just to make it clearer, 0 works just as well.
 				int finalsize =  Group.empty() ? -1 : Group.size();
 				
@@ -348,7 +380,7 @@ public:
 				}
 			}
 		}
-		
+
 		timeEndPeriod(1);
 		return 0;
 	}
@@ -377,6 +409,6 @@ private:
 	{
 		running = false;
 	}
-	
-	bool running;
+
+	bool running = true;
 };

@@ -323,7 +323,7 @@ public:
     }
 #ifndef VEC_DISABLED__
     Type operator()(VType val) const {
-        throw std::runtime_error("Not implemented");
+        ensureMsgf(false, TEXT("Not Implemented."));
         return val.simd_;
     }
 #endif
@@ -345,7 +345,6 @@ struct HasherSet {
     uint64_t operator()(uint64_t v, unsigned ind) const {
         return hashers_[ind](v);
     }
-    uint64_t operator()(uint64_t) const {throw std::runtime_error("Should not be called.");}
 };
 template<typename Hasher=WangHash>
 struct XORSeedHasherSet {
@@ -389,25 +388,7 @@ struct XORSeedHasherSet {
     }
 #endif
 };
-
-
-
-#if 0
-template<typename Hasher>
-struct HasherSet {
-    std::vector<uint64_t> seed_;
-    KWiseHasherSet(size_t nh, uint64_t seedseed=137) {
-        std::mt19937_64 mt(seedseed);
-        while(hashers_.size() < nh)
-            hashers_.emplace_back(mt());
-    }
-    size_t size() const {return hashers_.size();}
-    uint64_t operator()(uint64_t v, unsigned ind) const {
-        return hashers_[ind](v);
-    }
-    uint64_t operator()(uint64_t v) const {throw std::runtime_error("Should not be called.");}
-};
-#endif
+    
 
 struct MurFinHash {
     template<typename...Args> MurFinHash(Args &&...) {}

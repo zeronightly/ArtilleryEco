@@ -60,20 +60,51 @@ constexpr int32 ALLOWED_THREADS_FOR_BARRAGE_PHYSICS = 64;
 
 	inline thread_local extern  int32 MyWORKERIndex = ALLOWED_THREADS_FOR_BARRAGE_PHYSICS + 1;
 
+#ifdef WITH_EDITOR
+class BarrageDebugger;
+#endif
 
 
 UCLASS()
 class BARRAGE_API UBarrageDispatch : public UTickableWorldSubsystem, public ISkeletonLord, public ICanReady
 {
 	GENERATED_BODY()
-	
+
+#ifdef WITH_EDITOR
+	friend class BarrageDebugger;
+	TSharedPtr<BarrageDebugger> BarrageDebugger;
+	virtual void Tick(float DeltaTime) override;
+#endif
 	friend class FWorldSimOwner;
 	friend class UArtilleryLibrary;
 
 public:
 
-	//minimize use of this outside of artillery blueprint library (UArtilleryLibrary)
-	static inline UBarrageDispatch* SelfPtr = nullptr;
+	static UBarrageDispatch* Get(UWorld& World)
+	{
+		return World.GetSubsystem<UBarrageDispatch>();
+	}
+    
+	static UBarrageDispatch* Get(UObject* WorldContextObject) 
+	{
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+		if (ensure(World)) 
+		{
+			return UBarrageDispatch::Get(*World);
+		}
+
+		return nullptr;
+	}
+	/**
+  * Save the current state of the Barrage system to the provided recorder
+  */
+	void SaveState(JPH::StateRecorder& inStream);
+
+	/**
+	 * Restore Barrage system state from the provided recorder
+	 */
+	void RestoreState(JPH::StateRecorder& inStream);
+
 	constexpr static int OrdinateSeqKey = ORDIN::LastSubstrateKey;
 	virtual bool RegistrationImplementation() override;
 	void GrantWorkerFeed(int MyThreadIndex);
@@ -89,9 +120,6 @@ public:
 	// Why would I do it this way? It's fast and easy to debug, and we will probably need to force a thread
 	// order for determinism. this ensures there's a call point where we can institute that.
 	void GrantClientFeed();
-	UBarrageDispatch();
-	
-	virtual ~UBarrageDispatch() override;
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
 	virtual void Deinitialize() override;
@@ -110,7 +138,7 @@ public:
 	FBLet CreateProjectile(FBBoxParams& Definition, FSkeletonKey OutKey, uint16_t Layer);
 	FBLet LoadComplexStaticMesh(FBTransform& MeshTransform, const UStaticMeshComponent* StaticMeshComponent, FSkeletonKey OutKey, bool IsSensor = false);
 	FBLet LoadEnemyHitboxFromStaticMesh(FBTransform& MeshTransform, const UStaticMeshComponent* StaticMeshComponent, FSkeletonKey OutKey, bool IsSensor = false, bool UseRawMeshForCollision = false, FVector CenterOfMassTranslation = {0,0,0});
-	void CreateHeightfieldLandscapeMesh(TNotNull<const ALandscapeProxy*> LandscapeActor);
+	// void CreateHeightfieldLandscapeMesh(TNotNull<const ALandscapeProxy*> LandscapeActor);
 	FBLet GetShapeRef(FBarrageKey Existing) const;
 	FBLet GetShapeRef(FSkeletonKey Existing) const;
 	void FinalizeReleasePrimitive(FBarrageKey BarrageKey);
@@ -182,8 +210,8 @@ public:
 	JPH::IgnoreSingleBodyFilter GetFilterToIgnoreSingleBody(const FBLet& ToIgnore) const;
 	
 private:
-	TSharedPtr<KeyToFBLet> JoltBodyLifecycleMapping;
-	TSharedPtr<KeyToKey> TranslationMapping;
+	std::shared_ptr<KeyToFBLet> JoltBodyLifecycleMapping;
+	std::shared_ptr<KeyToKey> TranslationMapping;
 	FBLet ManagePointers(FSkeletonKey OutKey, FBarrageKey temp, FBShape form) const;
 	uint32 TombOffset = 0; //ticks up by one every world step.
 	//this is a little hard to explain. so keys are inserted as 
@@ -200,8 +228,8 @@ private:
 		TSharedPtr<FWorldSimOwner> PinSim = JoltGameSim;
 		TSharedPtr<TArray<FBLet>>* HoldOpen = Tombs;
 		TSharedPtr<TArray<FBLet>> CurrentTombstoneRecord = HoldOpen[(TombOffset) % (TombstoneInitialMinimum + 1)]; //think this math is wrong.
-		TSharedPtr<KeyToFBLet> HoldOpenBMap = JoltBodyLifecycleMapping;
-		TSharedPtr<KeyToKey> HoldOpenTMap = TranslationMapping;
+		auto HoldOpenBMap = JoltBodyLifecycleMapping;
+		auto HoldOpenTMap = TranslationMapping;
 		if(CurrentTombstoneRecord && !CurrentTombstoneRecord->IsEmpty() && HoldOpenBMap && HoldOpenTMap)
 		{
 			for (auto Tombstone : *CurrentTombstoneRecord)

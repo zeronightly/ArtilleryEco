@@ -15,7 +15,8 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MegafunkUtilsExampleAnimSubsystem)
 
-static FAutoConsoleVariableRef CVaregafunkUtilsExampleEnabled(
+
+static FAutoConsoleVariableRef CVarMegafunkUtilsExampleEnabled(
 	TEXT("MegafunkUtils.ExampleSkeletalMeshManager.Enabled"),
 	GbMegafunkUtilsExampleSkeletalMeshManagerEnabled,
 	TEXT("If the ExampleSkeletalMeshManager is enabled and ticks managed skeletal meshes in parallel. Enabled by default"),
@@ -50,11 +51,11 @@ void FMFUtilsAnimManagerTick::UpdateSkeletalMeshExample(FMegafunkUtilsAnimationE
 
 	//both may be null for valid if silly reasons. ensures are thus not appropriate.
 	UAnimInstance* AnimInstance = Comp.GetAnimInstance();
-	if (AnimInstance) {
+	if (!AnimInstance) {
 		return;
 	}
 	USkeletalMesh* SkeletalMesh = Comp.GetSkeletalMeshAsset();
-	if (SkeletalMesh) {
+	if (!ensure(SkeletalMesh)) {
 		return;
 	}
 

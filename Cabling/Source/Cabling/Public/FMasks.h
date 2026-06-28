@@ -68,6 +68,13 @@ namespace Arty
 		constexpr Intent LStickClick =	0b1000000000000000;
 		constexpr Intent RStickClick =	0b10000000000000000;
 
+		//GDK uses this mapping. See the buttons struct.
+		// GameInputGamepadA               = 0x00000004,
+		// GameInputGamepadB               = 0x00000008,
+		// GameInputGamepadX               = 0x00000010,
+		// GameInputGamepadY               = 0x00000020,
+		
+		
 		constexpr uint8 MenuIndex = 0;
 		constexpr uint8 ViewIndex = 1;
 		constexpr uint8 AIndex = 2;

@@ -8,7 +8,7 @@ public class SkeletonKey : ModuleRules
 	public SkeletonKey(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-		bEnableExceptions = true;
+		
 		PublicIncludePaths.AddRange(
 			new string[] {
 				Path.Combine(PluginDirectory,"Source/SkeletonKey"),
@@ -23,7 +23,7 @@ public class SkeletonKey : ModuleRules
 			}
 			);
 
-
+		PublicDefinitions.Add("SEQ_NO_DEBUG=1");
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{	
@@ -33,7 +33,7 @@ public class SkeletonKey : ModuleRules
                 "Slate",
                 "ApplicationCore",
                 "GameplayTasks",
-                "GameplayTags",
+                "GameplayTags", "ImGui", "ImGuiLibrary"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -48,7 +48,7 @@ public class SkeletonKey : ModuleRules
 				"Slate",
 				"ApplicationCore",
 				"GameplayTasks",
-				"GameplayTags",
+				"GameplayTags", "ImGui", "ImGuiLibrary"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

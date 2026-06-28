@@ -58,7 +58,7 @@ inline bool AThistleInject::RegistrationImplementation()
 		ArtilleryStateMachine->MyTags->AddTag(TAG_Enemy);
 		ArtilleryStateMachine->MyTags->AddTag(FGameplayTag::RequestGameplayTag("Enemy"));
 
-		MainGunKine = ManagedRequestingKine(MyMainGun);
+		MainGunKine = ManagedRequestingKine(ArtilleryStateMachine->MyDispatch, MyMainGun);
 
 		UE_LOG(LogTemp, Warning, TEXT("Inject Registration complete."));
 		return true;
@@ -73,7 +73,7 @@ void AThistleInject::FinishDeath()
 }
 
 // Sets default values
-AThistleInject::AThistleInject(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer), MainGunKine()
+AThistleInject::AThistleInject(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NavAgentProps.NavWalkingSearchHeightScale = FNavigationSystem::GetDefaultSupportedAgent().
 		NavWalkingSearchHeightScale;
@@ -137,15 +137,16 @@ void AThistleInject::Tick(float DeltaTime)
 
 void AThistleInject::FireAttack()
 {
+	auto ArtilleryDispatch = UArtilleryDispatch::Get(GetWorld());
 	if (Attack != DefaultGunKey && Attack.GunInstanceID != 0)
 	{
-		UArtilleryLibrary::RequestGunFire(Attack);
+		UArtilleryLibrary::RequestGunFire(ArtilleryDispatch, Attack);
 	}
 	else
 	{
 		bool wedoneyet = false;
 		FGunInstanceKey AInstance = FGunInstanceKey(
-			UArtilleryLibrary::K2_GetIdentity(MyKey, FARelatedBy::EquippedMainGun, wedoneyet));
+			UArtilleryLibrary::K2_GetIdentity(ArtilleryDispatch, MyKey, FARelatedBy::EquippedMainGun, wedoneyet));
 		if (wedoneyet && AInstance.Obj != 0)
 		{
 			Attack = FGunKey(GunDefinitionID, AInstance);
@@ -154,7 +155,7 @@ void AThistleInject::FireAttack()
 			return;
 		}
 		FGunKey InstanceThis = FGunKey(GunDefinitionID);
-		UArtilleryLibrary::RequestUnboundGun(FARelatedBy::EquippedMainGun, MyKey, InstanceThis);
+		UArtilleryLibrary::RequestUnboundGun( ArtilleryDispatch, FARelatedBy::EquippedMainGun, MyKey, InstanceThis);
 	}
 }
 
@@ -163,7 +164,7 @@ bool AThistleInject::RotateMainGun(FRotator RotateTowards, ERelativeTransformSpa
 	if (MyMainGun)
 	{
 		bool find = false;
-		Attr3Ptr aim = UArtilleryLibrary::implK2_GetAttr3Ptr(GetMyKey(), Attr3::AimVector, find);
+		Attr3Ptr aim = UArtilleryLibrary::implK2_GetAttr3Ptr(UArtilleryDispatch::Get(GetWorld()), GetMyKey(), Attr3::AimVector, find);
 		if (find)
 		{
 			aim->SetCurrentValue(RotateTowards.Vector());
@@ -190,8 +191,6 @@ bool AThistleInject::EngageNavSystem(FVector3f To)
 				FPathFindingQuery Query(this, *NavData, Start, Finish);
 				Query.SetAllowPartialPaths(true);
 				Query.SetRequireNavigableEndLocation(true);
-				try
-				{
 					FPathFindingResult Result = NavSys->FindPathSync(Query);
 
 					if (Result.IsSuccessful())
@@ -217,11 +216,6 @@ bool AThistleInject::EngageNavSystem(FVector3f To)
 						// Path->DebugDraw(NavData, FColor::Red, nullptr, /*bPersistent=*/false, 5.f);
 						return true;
 					}
-				}
-				catch (...)
-				{
-					return false;
-				}
 			}
 		}
 	}
@@ -240,7 +234,6 @@ bool AThistleInject::MoveToPoint(FVector3f To)
 	if (EngageNavSystem(To))
 	{
 		MoveState = EThistleMoveState::Moving;
-		SoftFollowMode = false; // This flag is no longer used but we reset it for safety
 		return true;
 	}
 
@@ -276,7 +269,7 @@ void AThistleInject::HandleIdleState()
 			{
 				auto TargetKey = Target->Get()->CurrentValue;
 				bool hasLoc = false;
-				auto loc = UArtilleryLibrary::implK2_GetLocation(TargetKey, hasLoc);
+				auto loc = UArtilleryLibrary::implK2_GetLocation(UArtilleryDispatch::Get(GetWorld()),TargetKey, hasLoc);
 				if (hasLoc && !loc.ContainsNaN())
 				{
 					
@@ -443,7 +436,8 @@ void AThistleInject::HandleSlowingDownState()
 void AThistleInject::LocomotionStateMachine()
 {
 	bool bLocalDebug = false;
-	if (!BarragePhysicsAgent || !BarragePhysicsAgent->MyBarrageBody)
+	//todo, bad function currying.
+	if (!BarragePhysicsAgent || !BarragePhysicsAgent->IsValidLowLevel() || !BarragePhysicsAgent->MyBarrageBody)
 	{
 		return;
 	}
@@ -473,8 +467,6 @@ void AThistleInject::LocomotionStateMachine()
 		HandleBlockingState(ArtilleryDeltaTime);
 		break;
 	case EThistleMoveState::Physics: // ragdoll for a tick or two.
-		break;
-	default: HandleIdleState();
 		break;
 	}
 	
@@ -542,7 +534,7 @@ void AThistleInject::UpdatePathAfterDisplacement()
 void AThistleInject::AimRotateMeshComponent(float DeltaTime)
 {
 	bool find = false;
-	const Attr3Ptr aim = UArtilleryLibrary::implK2_GetAttr3Ptr(GetMyKey(), Attr3::AimVector, find);
+	const Attr3Ptr aim = UArtilleryLibrary::implK2_GetAttr3Ptr(UArtilleryDispatch::Get(GetWorld()),GetMyKey(), Attr3::AimVector, find);
 	if (find && MyMainGun != nullptr)
 	{
 		const FVector TargetWorldDirection = aim->CurrentValue;
@@ -607,7 +599,7 @@ void AThistleInject::TriggerShieldBlock()
 {
 	// Find Damage Source
 	bool bFoundSource = false;
-	Attr3Ptr SourceAttr = UArtilleryLibrary::implK2_GetAttr3Ptr(MyKey, E_VectorAttrib::TargetLocation, bFoundSource);
+	Attr3Ptr SourceAttr = UArtilleryLibrary::implK2_GetAttr3Ptr(UArtilleryDispatch::Get(GetWorld()),MyKey, E_VectorAttrib::TargetLocation, bFoundSource);
 
 	if (bFoundSource && !SourceAttr->CurrentValue.IsZero())
 	{

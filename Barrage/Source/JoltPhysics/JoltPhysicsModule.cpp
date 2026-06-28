@@ -21,6 +21,7 @@ DEFINE_LOG_CATEGORY(LogJolt)
 
 static void UnrealJoltTrace([[maybe_unused]] const char *inFMT, ...)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE(Jolt Tracing Cost)
 	char Buffer[1024];
 	va_list Args;
 	va_start(Args, inFMT);
@@ -41,7 +42,7 @@ void FJoltPhysicsModule::StartupModule()
 		LLM_SCOPE_BYTAG(Jolt);
 		return FMemory::Malloc(inSize);
 	};
-	
+
 	JPH::Reallocate = [](void* inBlock, size_t inOldSize, size_t inNewSize)
 	{
 		LLM_SCOPE_BYTAG(Jolt);
@@ -54,22 +55,22 @@ void FJoltPhysicsModule::StartupModule()
 		LLM_SCOPE_BYTAG(Jolt);
 		FMemory::Free(inBlock);
 	};
-	
+
 	JPH::AlignedAllocate = [](size_t inSize, size_t inAlignment)-> void* {
 		LLM_SCOPE_BYTAG(Jolt);
 		return FMemory::Malloc(inSize, inAlignment);
 	};
-	
+
 	JPH::AlignedFree = [](void* inBlock)
 	{
 		LLM_SCOPE_BYTAG(Jolt);
 		FMemory::Free(inBlock);
 	};
 #endif
-	
+
 	JPH::Trace = UnrealJoltTrace;
-	
-	// Profiling callbacks. 
+
+	// Profiling callbacks.
 	// Currently jolt traces shape querying down to individual triangles which is a bit much...
 	// It will probably be more reasonable to just profile the higher-level task workers if you find this is slow
 #ifdef JPH_EXTERNAL_PROFILE
@@ -78,13 +79,13 @@ void FJoltPhysicsModule::StartupModule()
 	{
 		FCpuProfilerTrace::OutputBeginDynamicEvent(inName);
 	};
-	
+
 	JPH::ProfileEndMeasurement = [](uint8 *ioUserData)
 	{
 		FCpuProfilerTrace::OutputEndEvent();
 	};
 #endif
-	
+
 #ifdef JPH_ENABLE_ASSERTS
 	// Callback for asserts, connect this to your own assert handler if you have one
 	JPH::AssertFailed = [](const char* inExpression, const char* inMessage, const char* inFile, JPH::uint inLine)
@@ -94,13 +95,13 @@ void FJoltPhysicsModule::StartupModule()
 		return true;
 	};
 #endif
-	
+
 	// Create a factory
 	JPH::Factory::sInstance = new JPH::Factory();
 
 	// Register all Jolt physics types
 	JPH::RegisterTypes();
-	
+
 	UE_LOG(LogJolt, Log, TEXT("Unreal Jolt module loaded! Jolt build configuration: %s"), *GetJoltConfigString());
 }
 
@@ -115,7 +116,7 @@ void FJoltPhysicsModule::ShutdownModule()
 	}
 }
 
-FString FJoltPhysicsModule::GetJoltConfigString() 
+FString FJoltPhysicsModule::GetJoltConfigString()
 {
 	return JPH::GetConfigurationString();
 }

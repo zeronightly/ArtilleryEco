@@ -25,15 +25,7 @@ public:
     static T *allocate(size_t nelem) {
         void *ret;
         const size_t nb = nelem * sizeof(T);
-        CONST_IF(aln) {
-            if(posix_memalign(&ret, aln, nb)) {
-                throw std::bad_alloc();
-            }
-        } else {
-            if((ret = std::malloc(nb)) == nullptr) {
-                throw std::bad_alloc();
-            }
-        }
+
         return static_cast<T *>(ret);
     }
     template<typename It>
@@ -47,7 +39,6 @@ public:
     vector(): data_(nullptr), n_(0) {}
     vector &operator=(const vector &o) {
         auto tmp = static_cast<T *>(std::realloc(data_, o.n_ * sizeof(T)));
-        if(tmp == nullptr) throw std::bad_alloc();
         data_ = tmp;
         n_ = o.n_;
         std::copy(o.data_, o.data_ + n_, data_);

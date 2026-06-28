@@ -57,6 +57,20 @@ public class JoltPhysics : ModuleRules
 		if (bSlowerDebugCode && Target.Configuration <= UnrealTargetConfiguration.DebugGame)
 		{
 			PublicDefinitions.Add("JPH_ENABLE_ASSERTS");
+			if (bDebugDraw) 
+			{
+				PublicDefinitions.Add("JPH_DEBUG_RENDERER");
+			}
+			
+			if (bProfiling)
+			{
+				PublicDefinitions.Add("JPH_EXTERNAL_PROFILE"); //mutually exclusive with JPH_PROFILE_ENABLED?
+				
+				if (bBroadPhaseStats)
+				{
+					PublicDefinitions.Add("JPH_TRACK_BROADPHASE_STATS");
+				}
+			}
 		}
 		else
 		{
@@ -73,23 +87,6 @@ public class JoltPhysics : ModuleRules
 			PublicDefinitions.Add("JPH_DISABLE_CUSTOM_ALLOCATOR");
 		}
 		
-		if (Target.Configuration <= UnrealTargetConfiguration.Test)
-		{
-			if (bDebugDraw) 
-			{
-				PublicDefinitions.Add("JPH_DEBUG_RENDERER");
-			}
-			
-			if (bProfiling)
-			{
-				PublicDefinitions.Add("JPH_EXTERNAL_PROFILE"); //mutually exclusive with JPH_PROFILE_ENABLED?
-				
-				if (bBroadPhaseStats)
-				{
-					PublicDefinitions.Add("JPH_TRACK_BROADPHASE_STATS");
-				}
-			}
-		}
 		
 		// whether we are going deterministic mode or not
 		if (bDeterministicJolt)

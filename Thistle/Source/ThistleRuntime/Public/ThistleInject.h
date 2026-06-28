@@ -98,9 +98,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = NavMovement, meta = (DisplayName = "Can I Move?", Keywords = "Nav Agent"))
 	bool EnableTakeMoveOrder = true;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = NavMovement, meta = (DisplayName = "Can I Move?", Keywords = "Nav Agent"))
-	bool SoftFollowMode = false;
+	
 	signed int AdjustSpeedBy = 0;
 	bool bGroundful = true;
 

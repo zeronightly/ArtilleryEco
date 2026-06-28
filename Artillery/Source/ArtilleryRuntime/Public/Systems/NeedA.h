@@ -113,16 +113,7 @@ public:
 	// TODO: Get this off the fucking main thread or we'll never be deterministic.
 	FGrantWith NewUnboundGun(FSkeletonKey Self, FGunKey NameSetIDUnset,  FARelatedBy EquippedAs, ArtilleryTime Stamp);
 	FGrantWith SceneComponentMoved(FBoneKey ComponentArtilleryKey, ArtilleryTime Stamp, FVector Pos, FRotator Rot);
-
-	FGrantWith NewAutoGun()
-	{
-		throw; //not implemented yet
-	};
-
-	FGrantWith Harvester()
-	{
-		throw; //not implemented yet
-	};
+	
 
 	FGrantWith MobileAI(FSkeletonKey AIEntity, ArtilleryTime Stamp);
 	
@@ -134,36 +125,10 @@ public:
 	//this will just create a lil ticklite that has the number of ticks as its duration, and fires the gun on expire
 	FGrantWith GunFiredAtTime(FGunKey Target, ArtilleryTime Stamp);
 
-	//this will just create a lil ticklite that has the number of ticks as its duration, and fires the gun on expire
-	FGrantWith GunFiredFromATicklite(FRequestGameThreadThing FireMeElmo)
-	{
-		throw; //not implemented yet
-	};
-
 	FGrantWith TagReferenceModel(FSkeletonKey Target, ArtilleryTime Stamp, FConservedTags ValidSharedPtr);
 
 	FGrantWith NoTagReferenceModel(FSkeletonKey Target, ArtilleryTime Stamp);
-
-	FGrantWith GunFiredWhenATagGetsAdded()
-	{
-		throw; //not implemented yet
-	}
 	
-	FGrantWith GunFiredWhenATagExpires()
-	{
-		throw; //not implemented yet
-	}
-	
-	bool AutoGunTurnedOff(FGunKey Target)
-	{
-		throw;
-	}
-	
-	bool AutoGunTurnedOn(FGunKey Target)
-	{
-		throw; //not implemented yet
-	}
-
 	// Particle Systems
 	FGrantWith ParticleSystemActivatedOrDeactivated(FParticleID PID, bool ShouldBeActive, ArtilleryTime Stamp);
 	

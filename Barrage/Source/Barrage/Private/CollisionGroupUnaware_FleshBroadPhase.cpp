@@ -217,7 +217,12 @@ JPH_NAMESPACE_BEGIN
 	                                                               const BroadPhaseLayerFilter& inBroadPhaseLayerFilter,
 	                                                               const ObjectLayerFilter& inObjectLayerFilter) const
 	{
-		throw;
+	UE_LOG(
+LogTemp,
+Fatal,
+TEXT(
+"FLESH. THE FLESH DOES NOT OBEY."
+));
 	}
 
 

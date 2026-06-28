@@ -107,7 +107,6 @@ public:
 		NameToKeyQueue.Empty();
 	}
 
-	static inline UNiagaraParticleDispatch* SelfPtr = nullptr;
 	
 protected:
 	virtual ~UNiagaraParticleDispatch() override;

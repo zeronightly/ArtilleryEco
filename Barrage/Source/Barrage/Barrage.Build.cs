@@ -15,7 +15,7 @@ public class Barrage : ModuleRules
 			{
 				"Core",
 				"Chaos",
-				"JoltPhysics", "GeometryCore", "SkeletonKey", "mimalloc", "LocomoCore" // <- add jolt dependecy here
+				"JoltPhysics", "GeometryCore", "SkeletonKey", "mimalloc", "LocomoCore", "ImGui" // <- add jolt dependecy here
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -33,7 +33,8 @@ public class Barrage : ModuleRules
 				"LocomoCore",
 				"SkeletonKey",
 				"mimalloc",
-				"RenderCore", "RHI" // Mainly needed for debug rendering, arguably optional in shipping builds
+				"RenderCore", "RHI", "ImGui"
+				// Mainly needed for debug rendering, arguably optional in shipping builds
 			}
 			);
 		

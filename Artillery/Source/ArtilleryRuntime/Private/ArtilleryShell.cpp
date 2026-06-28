@@ -41,7 +41,7 @@ int32_t FArtilleryShell::GetStickRightYAsACSN()
 }
 
 // index is 0 - 19
-bool FArtilleryShell::GetInputAction(uint8 inputActionIndex)
+bool FArtilleryShell::GetInputActionByIndex(uint8 inputActionIndex)
 {
     return (MyInputActions >> inputActionIndex) & 0b1;
 }

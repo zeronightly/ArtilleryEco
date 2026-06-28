@@ -726,22 +726,10 @@ namespace seq
 				memcpy(static_cast<void*>(dst), static_cast<const void*>(src), sizeof(U) * count);
 			else {
 				unsigned i = 0;
-				try {
 					for (; i < count; ++i) {
 						new (dst + i) U(std::move(src[i]));
 						src[i].~U();
 					}
-				}
-				catch (...) {
-					// destroy created elements
-					for (unsigned j = 0; j < i; ++j)
-						dst[j].~U();
-					// finish destroying src
-					for (; i < count; ++i) {
-						src[i].~U();
-					}
-					throw;
-				}
 			}
 		}
 
@@ -756,17 +744,10 @@ namespace seq
 			if constexpr (is_relocatable<U>::value) {
 				if (count)
 					memmove(static_cast<void*>(dst), static_cast<void*>(src), count * sizeof(U));
-				try {
 					Policy::emplace(src, std::forward<Args>(args)...);
-				}
-				catch (...) {
-					// move back to the left
-					memmove(static_cast<void*>(src), static_cast<const void*>(dst), count * sizeof(U));
-					throw;
-				}
+				
 			}
 			else {
-				try {
 					if (count) {
 						new (dst + count - 1) U();
 						std::move_backward(src, src + count, dst + count);
@@ -775,13 +756,6 @@ namespace seq
 					}
 					else
 						Policy::emplace(src, std::forward<Args>(args)...);
-				}
-				catch (...) {
-					// destroy created element
-					if (count)
-						(dst + count - 1)->~U();
-					throw;
-				}
 			}
 		}
 
@@ -1003,11 +977,9 @@ namespace seq
 				LeafNode* n = al.allocate(hash_for_size(old_size + 1, new_capacity), new_capacity);
 				*n->size() = this->count();
 				*n->capacity() = new_capacity;
-				try {
 					// might throw
 					Policy::emplace((n->values() + pos), std::forward<Args>(args)...);
 					n->hashs()[pos] = th;
-					try {
 						if (Sorted && old_size != pos) {
 							copy_destroy(n->hashs(), this->hashs(), pos);
 							copy_destroy(n->hashs() + pos + 1, this->hashs() + pos, (old_size - pos));
@@ -1021,16 +993,8 @@ namespace seq
 							// both calls might throw
 							copy_destroy(n->values(), this->values(), old_size);
 						}
-					}
-					catch (...) {
-						n->values()[pos].~T();
-						throw;
-					}
-				}
-				catch (...) {
-					al.deallocate(n, hash_for_size(old_size + 1, new_capacity), new_capacity);
-					throw;
-				}
+					
+				
 
 				al.deallocate(this, hash_for_size(old_size, old_size), old_size);
 
@@ -1089,14 +1053,9 @@ namespace seq
 					*n->size() = *this->size();
 					*n->capacity() = cap;
 
-					try {
 						copy_destroy(n->values(), values(), *size());
 						copy_destroy(n->hashs(), this->hashs(), *size());
-					}
-					catch (...) {
-						al.deallocate(n, hash_for_size(*size(), cap), cap);
-						throw;
-					}
+					
 
 					al.deallocate(this, hash_for_size(*size() + 1, *capacity()), *capacity());
 
@@ -1115,14 +1074,9 @@ namespace seq
 				*tmp->size() = 1;
 				*tmp->capacity() = capacity;
 				T* p = nullptr;
-				try {
 					p = Policy::emplace(tmp->values(), std::forward<Args>(args)...);
 					tmp->hashs()[0] = static_cast<std::uint8_t>(th);
-				}
-				catch (...) {
-					alloc.deallocate(tmp, hash_count, capacity_for_size(1));
-					throw;
-				}
+				
 
 				return std::pair<LeafNode*, T*>(tmp, p);
 			}
@@ -1327,13 +1281,8 @@ namespace seq
 			{
 				RebindAlloc<Allocator, vector_type> al = get_allocator();
 				vector_type* res = al.allocate(1);
-				try {
 					construct_ptr(res, get_allocator(), h);
-				}
-				catch (...) {
-					al.deallocate(res, 1);
-					throw;
-				}
+				
 				return res;
 			}
 			/// @brief Destroy and deallocate a vector
@@ -1624,8 +1573,7 @@ namespace seq
 		inline void check_vector_size(size_t size)
 		{
 			// For vector nodes, the size is limited to (unsigned)-1 since the highest values is reserved for the radix iterator
-			if (size == std::numeric_limits<unsigned>::max() - 1)
-				throw std::out_of_range("Vector node size is limited to 32 bits");
+
 		}
 
 		/// @brief Less functor used by vector nodes
@@ -1862,13 +1810,8 @@ namespace seq
 					return;
 				RebindAlloc<PrivateData> al = get_allocator();
 				PrivateData* d = al.allocate(1);
-				try {
 					construct_ptr(d, get_allocator(), start_len);
-				}
-				catch (...) {
-					al.deallocate(d, 1);
-					throw;
-				}
+				
 				d_data = d;
 				d_root = d->base.root;
 			}
@@ -2126,139 +2069,6 @@ namespace seq
 					// we are above maximum allowed size for a directory
 					return nullptr;
 
-				// Future release: use this version to soften the memory peak
-				/* directory* new_dir = nullptr;
-				{
-					//TEST
-					//Link all children of dir
-					directory* first = static_cast<directory*>(dir->children()[0].ptr());
-					directory* link = first;
-					dir->children()[0] = child_ptr();
-					for (unsigned i = 1; i != size; ++i) {
-						directory* child = static_cast<directory*>(dir->children()[i].ptr());
-						link->parent = child;
-						link = child;
-						dir->children()[i] = child_ptr();
-					}
-
-					auto prefix_len = dir->prefix_len;
-
-					// Destroy dir before allocating new directory to avoid memory peak
-					directory::destroy(d_data->base, dir, false);
-
-					try {
-						// might throw, fine
-						new_dir = directory::make(d_data->base, new_hash_len);
-						// copy prefix length
-						new_dir->prefix_len = prefix_len;
-						// set parent, used by iterator::get_bit_pos
-						new_dir->parent = parent_dir;
-					}
-					catch (...) {
-						// Reset parent for all children
-						for (unsigned i = 0; i != size; ++i) {
-							auto* next = first->parent;
-							first->parent = dir;
-							first = next;
-						}
-						throw;
-					}
-
-					unsigned i = 0;
-					try {
-						for (; i != size; ++i) {
-							directory* child = first;
-							directory* next = first->parent;
-							unsigned child_count = child->size();
-
-							if (prefix_search && child->prefix_len >= start_arity) {
-								// keep this directory and remove start_arity to the prefix.
-								size_t dir_pos = iterator::get_bit_pos(new_dir);
-								unsigned loc = hash_key(child->any_child()).n_bits(dir_pos, new_hash_len);
-
-								child->prefix_len -= start_arity;
-								new_dir->child(loc) = dir->const_child(i);
-								new_dir->child_count++;
-								new_dir->dir_count++;
-								child->parent = new_dir;
-								child->parent_pos = loc;
-								first = next;
-								continue;
-							}
-
-							if (child->hash_len != start_arity) {
-								// if child has more than start_arity bits
-								unsigned rem_bits = child->hash_len - start_arity;
-								unsigned mask = ((1U << rem_bits) - 1U);
-
-								for (unsigned j = 0; j < child_count; ++j) {
-									unsigned loc = (i << start_arity) | (j >> rem_bits); // take high bits of j
-									directory* intermediate = static_cast<directory*>(new_dir->children()[loc].ptr());
-									if (!intermediate)
-										// this part might throw which is a problem, we are in an intermediate state.
-										intermediate = make_intermediate(new_dir, rem_bits, loc);
-
-									// take low bits of j
-									if ((intermediate->children()[j & mask] = child->children()[j])) // take high bits of j
-									{
-										intermediate->child_count++;
-										if (intermediate->first_valid_child == static_cast<uint64_t>(-1))
-											intermediate->first_valid_child = j & mask;
-									}
-									if (child->children()[j].tag() == directory::IsDir) {
-										intermediate->dir_count++;
-										directory* d = child->const_child(j).to_dir();
-										d->parent = intermediate;
-										d->parent_pos = j & mask;
-									}
-									else if (child->children()[j].tag() != 0)
-										intermediate->first_valid_child = j & mask;
-
-									// set children to null in case of exception
-									child->children()[j] = child_ptr();
-								}
-							}
-							else {
-								for (unsigned j = 0; j < child_count; ++j) {
-									// compute location
-									unsigned loc = j | (i << child->hash_len);
-
-									if ((new_dir->children()[loc] = child->children()[j]))
-										++new_dir->child_count;
-
-									// update directory count
-									if SEQ_UNLIKELY (child->children()[j].tag() == directory::IsDir) {
-										new_dir->dir_count++;
-										directory* d = child->const_child(j).to_dir();
-										d->parent = new_dir;
-										d->parent_pos = loc;
-									}
-									// set children to null in case of exception
-									child->children()[j] = child_ptr();
-								}
-							}
-
-							directory::destroy(d_data->base, child, false);
-							first = next;
-						}
-					}
-					catch (...) {
-						// to keep the basic exception guarantee, the simplest solution is just to clear the tree
-						directory::destroy(d_data->base, new_dir, true);
-						for (; i != size; ++i) {
-							directory* next = first->parent;
-							directory::destroy(d_data->base, first, true);
-							first = next;
-						}
-						clear();
-
-						throw;
-					}
-
-					// reset parent
-					new_dir->parent = nullptr;
-				}*/
-
 				
 				// save internal value in order to reset it later to the new directory
 
@@ -2269,7 +2079,6 @@ namespace seq
 				// set parent, used by iterator::get_bit_pos
 				new_dir->parent = parent_dir;
 
-				try {
 					for (unsigned i = 0; i < size; ++i) {
 						directory* child = static_cast<directory*>(dir->children()[i].ptr());
 						unsigned child_count = child->size();
@@ -2344,14 +2153,6 @@ namespace seq
 						dir->children()[i] = child_ptr();
 						directory::destroy(d_data->base, child, false);
 					}
-				}
-				catch (...) {
-					// to keep the basic exception guarantee, the simplest solution is just to clear the tree
-					directory::destroy(d_data->base, new_dir, true);
-					clear();
-
-					throw;
-				}
 
 				// reset parent
 				new_dir->parent = nullptr;
@@ -2479,17 +2280,12 @@ namespace seq
 				// turn node into a vector and move values
 				vector_type* vec = d_data->base.make_vector(*this);
 				unsigned position = 0;
-				try {
 					T* vals = child->values();
 					unsigned count = child->count();
 					for (unsigned i = 0; i < count; ++i)
 						vec->emplace_no_check(std::move(vals[i]));
 					position = Policy::emplace_vector_no_check(*vec, std::forward<K>(key), std::forward<Args>(args)...);
-				}
-				catch (...) {
-					d_data->base.destroy_vector(vec);
-					throw;
-				}
+				
 
 				// destroy old child
 				node::destroy(d_data->base, child);
@@ -2536,7 +2332,6 @@ namespace seq
 				directory* child_dir = directory::make(d_data->base, start_arity);
 
 				node* n = nullptr;
-				try {
 					// Rehash node and insert its values inside the new directory
 					T* vals = child->values();
 					unsigned count = child->count();
@@ -2574,13 +2369,6 @@ namespace seq
 							child_dir->child(new_pos) = child_ptr(n = p.first, directory::IsLeaf);
 						}
 					}
-				}
-				catch (...) {
-					// In case of exception, just destroyed the newly created directory.
-					// Some values might have been moved to it but, hey, this is basic exception guarantee only
-					directory::destroy(d_data->base, child_dir);
-					throw;
-				}
 
 				// destroy child node unused anymore
 				node::destroy(d_data->base, child);
@@ -2980,7 +2768,6 @@ namespace seq
 					}
 				}
 
-				try {
 					remove_directory(d);
 
 					// Reinsert all values inside directory into the tree
@@ -3010,15 +2797,7 @@ namespace seq
 						res = this->emplace(std::move(*value)).first;
 						value->~T();
 					}
-				}
-				catch (...) {
-					// Destroy the directory and recompute ends
-					// to leave the tree in a valid state
-					directory::destroy(d_data->base, d);
-					if (value)
-						value->~T();
-					throw;
-				}
+
 
 				directory::destroy(d_data->base, d);
 				return res;

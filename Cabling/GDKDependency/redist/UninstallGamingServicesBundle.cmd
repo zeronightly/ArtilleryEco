@@ -1,12 +1,3 @@
-@echo off
-
-Echo uninstalling Gaming Services appxbundle
-
-FOR /f "tokens=1,2*" %%a in ('reg query "HKLM\SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell" /v "Path" /reg:32 2^>NUL') DO SET POWERSHELLEXE=%%c
-
-IF "%POWERSHELLEXE%"=="" (
-    ECHO Unable to find powershell exe path.
-    EXIT /B 1
-)
-
-%POWERSHELLEXE% -Version 3.0 -NoProfile -NonInteractive -InputFormat None -ExecutionPolicy Bypass -Command "Remove-AppxPackage -AllUsers Microsoft.GamingServices_16.82.27002.0_x64__8wekyb3d8bbwe;";
+version https://git-lfs.github.com/spec/v1
+oid sha256:d650d242ea0836a888b06eb7f3307026686d1d3cb820448f8f3b8b12ff3f8eb1
+size 506

@@ -10,8 +10,10 @@
 
 #include "ConservedVector.generated.h"
 
+static constexpr uint32 CONSERVED_VECTIR_ATTRIBUTE_BUFFER_SIZE = 20;
+
 /**
- * Conserved attributes record their last 128 changes.
+ * Conserved attributes record their last 20 changes.
  * Currently, this is for debug purposes, but we can use it with some additional features to provide a really expressive
  * model for rollback at a SUPER granular level if needed. 
  */
@@ -20,8 +22,9 @@ struct ARTILLERYRUNTIME_API FConservedVector
 {
 	GENERATED_BODY()
 	virtual ~FConservedVector() = default;
-	TCircularBuffer<FVector3d> CurrentHistory = TCircularBuffer<FVector3d>(64);
-	TCircularBuffer<FVector3d> RemoteHistory = TCircularBuffer<FVector3d>(64);
+	using Buff = TFixedCircular<FVector3d, CONSERVED_VECTIR_ATTRIBUTE_BUFFER_SIZE>;
+	Buff CurrentHistory = Buff();
+
 
 	virtual void SetCurrentValue(FVector3d NewValue) {
 		CurrentHistory[CurrentHistory.GetNextIndex(CurrentHead)] = CurrentValue;
@@ -29,15 +32,7 @@ struct ARTILLERYRUNTIME_API FConservedVector
 		++CurrentHead;
 	};
 	
-	virtual void SetRemoteValue(FVector3d NewValue) {
-		RemoteHistory[RemoteHistory.GetNextIndex(RemoteHead)] = NewValue;
-		++RemoteHead;
-	};
-
 	FVector3d CurrentValue = FVector3d::ZeroVector;
-	FVector3d RemoteValue = FVector3d::ZeroVector;
-	
 	uint64_t CurrentHead = 0;
-	uint64_t RemoteHead = 0;
 };
 

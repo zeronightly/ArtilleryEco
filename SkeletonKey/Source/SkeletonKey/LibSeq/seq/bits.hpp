@@ -396,8 +396,12 @@ static constexpr void* __dummy_ptr_with_long_name = nullptr;
 #define SEQ_ALIGN_TO_BOUNDARY(n) SEQ_USER_ALIGN_TO_BOUNDARY(n)
 #endif
 
+// SEQ_NO_DEBUG: explicit opt-out token. Define it (project-wide, or before the
+// first seq include) to strip all SEQ_ASSERT_DEBUG checks regardless of NDEBUG.
+// Lets a consuming project disable seq's internal debug asserts without touching
+// the global NDEBUG / assert() machinery.
 #ifndef SEQ_DEBUG
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(SEQ_NO_DEBUG)
 #define SEQ_DEBUG
 #endif
 #endif

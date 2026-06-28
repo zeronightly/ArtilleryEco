@@ -6,13 +6,14 @@ EStateTreeRunStatus FAimTurret::Tick(FStateTreeExecutionContext& Context, const 
 {
 	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 	bool Shuck = false;
-	FVector location = InstanceData.ShuckPoi(Shuck);
-	UBarrageDispatch* AreWeBarraging = UBarrageDispatch::SelfPtr;
-	
+	FVector location = InstanceData.ShuckPoi(Context,Shuck);
+
+	UBarrageDispatch* AreWeBarraging = UBarrageDispatch::Get(Context.GetWorld());
+	auto ArtilleryDispatch = UArtilleryDispatch::Get(Context.GetWorld());
 	if (AreWeBarraging != nullptr)
 	{
 		bool found = true;
-		FVector HereIAm = UArtilleryLibrary::implK2_GetLocation(InstanceData.KeyOf, found);
+		FVector HereIAm = UArtilleryLibrary::implK2_GetLocation(ArtilleryDispatch, InstanceData.KeyOf, found);
 		if (found)
 		{
 			if (!Shuck)
@@ -20,7 +21,7 @@ EStateTreeRunStatus FAimTurret::Tick(FStateTreeExecutionContext& Context, const 
 				return EStateTreeRunStatus::Failed;
 			}
 			FRotator Rot = UKismetMathLibrary::FindLookAtRotation(HereIAm, location);
-			Attr3Ptr MyRot = UArtilleryLibrary::implK2_GetAttr3Ptr(InstanceData.KeyOf, E_VectorAttrib::AimVector, found);
+			Attr3Ptr MyRot = UArtilleryLibrary::implK2_GetAttr3Ptr(ArtilleryDispatch, InstanceData.KeyOf, E_VectorAttrib::AimVector, found);
 			if (found)
 			{
 				if (MyRot->CurrentValue.Equals(Rot.Vector(), 0.2f))
@@ -40,7 +41,7 @@ EStateTreeRunStatus FAimTurret::Tick(FStateTreeExecutionContext& Context, const 
 			{
 			  Rot =	FVector::SlerpVectorToDirection(unit, unit2, 0.4).Rotation();
 			}
-			UThistleBehavioralist::AttemptAimFromKey(InstanceData.KeyOf, Rot);
+			UThistleBehavioralist::AttemptAimFromKey(UThistleBehavioralist::Get(Context.GetWorld()), InstanceData.KeyOf, Rot);
 			return EStateTreeRunStatus::Running;
 		}
 	}

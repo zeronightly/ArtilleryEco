@@ -555,14 +555,7 @@ namespace seq
 			d->right = nullptr; 
 			d->left = reinterpret_cast<ConcurrentDenseNode<value_type>*>(n);
 
-			try {
 				Policy::emplace(d->values(), std::forward<K>(key), std::forward<Args>(args)...);
-			}
-			catch (...) {
-				// destroy dense node
-				al.deallocate(d, 1);
-				throw;
-			}
 			d->hashs[++d->hashs[0]] = th;
 			n->right = d;
 			++counter;
@@ -785,9 +778,6 @@ namespace seq
 
 				// Reset chain count
 				d_chain_count = 0;
-
-				try {
-
 					// Alloc new buckets
 					buckets = make_nodes(new_hash_mask + 1u);
 					values = make_value_nodes(new_hash_mask + 1u);
@@ -817,24 +807,7 @@ namespace seq
 						if (is_concurrent && locks)
 							++iter;
 					}
-				}
-				catch (...) {
-
-					if (std::is_nothrow_move_constructible_v<Value> && buckets && values) {
-						// Move back values from new to old buckets
-						move_back(buckets, values, new_hash_mask, d_buckets, d_values, d_hash_mask);
-					}
-
-					// Destroy and deallocate
-					destroy_buckets(buckets, values, new_hash_mask + 1);
-
-					if (is_concurrent && locks) {
-						// Unlock locked nodes
-						for (size_t j = 0; j <= i; ++j)
-							locks->at(j).unlock();
-					}
-					throw;
-				}
+				
 
 				// Save old bucket
 				node_type* old_buckets = d_buckets;
@@ -849,10 +822,10 @@ namespace seq
 
 				if (is_concurrent && locks) {
 					// Unlock all nodes
-					auto iter = typename lock_array::iterator(locks);
-					size_t count = old_buckets ? old_hash_mask + 1u : 0u;
-					for (i = 0; i < count; ++i, ++iter)
-						iter->unlock();
+					auto unlock_iter = typename lock_array::iterator(locks);
+					size_t unlock_count = old_buckets ? old_hash_mask + 1u : 0u;
+					for (i = 0; i < unlock_count; ++i, ++unlock_iter)
+						unlock_iter->unlock();
 				}
 
 				// Destroy previous buckets
@@ -1058,8 +1031,7 @@ namespace seq
 
 			void erase_from_dense(node_type* bucket, value_node_type* values, chain_node_type* n, unsigned pos)
 			{
-				// Erase position within a dense node and shift left remaining values
-				try {
+				
 					while (n->right) {
 						// Replace by last value of right node
 						unsigned count = n->right->hashs[0];
@@ -1076,12 +1048,7 @@ namespace seq
 					// invalidate last hash, destroy value
 					n->hashs[n->hashs[0]] = 0;
 					n->values()[n->hashs[0] - 1].~Value();
-				}
-				catch (...) {
-					// Erase full node, no ways to revert back the state
-					erase_full_bucket(bucket, values);
-					throw;
-				}
+				
 
 				// decrease size and delete node if necessary
 				if (--n->hashs[0] == 0) {
@@ -1538,15 +1505,9 @@ namespace seq
 				{
 					// Allocate/construct all sub-tables
 					unsigned i = 0;
-					try {
 						for (; i < map_count; ++i)
 							construct_ptr(&at(i), this);
-					}
-					catch (...) {
-						for (unsigned j = 0; j < i; ++j)
-							destroy_ptr(&at(j));
-						throw;
-					}
+					
 				}
 				~PrivateData()
 				{
@@ -1583,13 +1544,7 @@ namespace seq
 				{
 					rebind_alloc<PrivateData> al = alloc;
 					PrivateData* d = al.allocate(1);
-					try {
 						construct_ptr(d, hash, equal, alloc);
-					}
-					catch (...) {
-						al.deallocate(d, 1);
-						throw;
-					}
 					return d;
 				}
 

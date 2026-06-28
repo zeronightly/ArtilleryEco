@@ -7,7 +7,6 @@
 #pragma once
 #include "FakeRandom.h"
 #include "LocomoUtil.h"
-#include "Structures/flat_hash_map.hpp"
 #include "Structures/MaybeTable.h"
 #include "Structures/PascalCircularBuffer.h"
 
@@ -296,7 +295,7 @@ public:
 						}
 						else
 						{
-							throw; //temp
+							std::cerr << "Now we shall pay for my arrogance. This should never happen." << std::endl;
 						}
 					}
 				}

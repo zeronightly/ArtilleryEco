@@ -38,6 +38,6 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (ScriptName = "ApplyDamageToValidEntity", DisplayName = "Apply Damage To Valid Entity", Category="Guns|Gameplay Util"))
 	static void K2_ApplyDamage(FSkeletonKey ObjectKey, float Damage, UArtilleryDispatch* Dispatch, bool isEnemyTarget = true)
 	{
-		UArtilleryLibrary::ApplyDamage(ObjectKey, Damage);
+		UArtilleryLibrary::ApplyDamage(Dispatch, ObjectKey, Damage);
 	}
 };

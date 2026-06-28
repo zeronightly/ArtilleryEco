@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "HAL/Runnable.h"
 THIRD_PARTY_INCLUDES_START
 PRAGMA_PUSH_PLATFORM_DEFAULT_PACKING
 #include <windows.h>

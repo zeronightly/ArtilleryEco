@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <chrono>
 #include "ConservedStream.hpp"
 #include "SkeletonTypes.h"
 
@@ -16,7 +17,11 @@ namespace BLK
 	static constexpr uint32_t MaxNumberOfConsumers = 32;
 	static constexpr uint32_t MaxNumberOfProducers = 32;
 	
+	//don't set this higher than your queue width or you will have a bad time.
+	//don't set this higher than 85% of your queue width or you will have a not great time.
+	//don't set this higher than short max unless you want a terrible time. it's a uint8, so honestly, I'd be impressed.
 	static constexpr uint8 MaxFallBehind = 128; //we don't support less than 1fps.
+	static constexpr uint8 HeuristicWrapWidth = (MaxFallBehind/2) -1; //we don't support less than 1fps.
 	
 
 	
@@ -24,10 +29,9 @@ namespace BLK
 	{
 		FSkeletonKey key = FSkeletonKey::Invalid();
 		uint32 start = 0;
-		char count = 0;
-		unsigned char tick = 0;
-		char hash = 0;
-		char state = 0;
+		uint8 count = 0;
+		unsigned short tick = 0;
+		uint8 hash = 0;
 	};
 
 
@@ -67,12 +71,13 @@ namespace BLK
 		FBoneArrayRecord>
 		{
 		public:
+			//WARNING: SentAt allows negative values for historical reasons. Do not make use of that here.
+			//It will become interesting. In fact, note that tick is moduloed in.
 			virtual void Add(FBoneArrayRecord shell, long SentAt) override 
 			{
 				CurrentHistory[highestInput] = shell;
 				CurrentHistory[highestInput].tick = SentAt % MaxFallBehind;//reserve a few states
 				//This is mostly used for debugging.
-				CurrentHistory[highestInput].state = 1; 
 	
 				++highestInput;
 			}
@@ -120,7 +125,7 @@ namespace BLK
 	// Each record gets a hash generated and committed by the producer
 	// the record is written to the stream, in this case the bones stream, then the meta data is recorded in the records
 	// 
-	// We write the timestamp last, then set the state. as a result, we allow false negatives but no false positives or incomplete records.
+	// We write the timestamp last. as a result, we allow false negatives but no false positives or incomplete records.
 	// to consume, a consumer sweeps through the record stream of each producer's buffer, starting where it left off last time
 	// then checks to see if the hash falls into its part of the hash ring. if so, it uses it, if not, it doesn't.
 	//
@@ -151,7 +156,7 @@ namespace BLK
 	{
 		int8_t BufferRingBookmark = 0;
 		//TODO: main should have the commit that converts this to an int. double check post merge.
-		uint64 PerBufferBookmarks[MaxNumberOfProducers] = {};
+		uint64 PerBufferBookmarks[MaxNumberOfProducers] = {0};
 	};
 	typedef std::pair<int8_t, std::optional<FBoneArrayRecord>> RecordFetchState;
 	struct TransientQueuedDataRange

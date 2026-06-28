@@ -15,7 +15,7 @@ struct FGunWeeArtillery : public FArtilleryGun
 	GENERATED_BODY()
 
 public:
-	FGunWeeArtillery(const FGunKey& KeyFromDispatch, int FireRateIn, float RangeIn, float ApogeeModifierIn)
+	FGunWeeArtillery(const FGunKey& KeyFromDispatch, int FireRateIn, float RangeIn, float ApogeeModifierIn, UArtilleryDispatch* Dispatch)
 	{
 		MyGunKey = KeyFromDispatch;
 		Firerate = FireRateIn;
@@ -23,11 +23,12 @@ public:
 		ApogeeModifier = ApogeeModifierIn;
 	}
 	
+	//Dispatch will get assigned during gun bake, see GetGun from Artillery Dispatch
 	FGunWeeArtillery() : FGunWeeArtillery(
 		Default,
 		240,
 		0.f,
-		0.f) {}
+		0.f, nullptr) {}
 
 	virtual bool Initialize(
 		const FGunKey& KeyFromDispatch,
@@ -79,13 +80,14 @@ public:
 		UArtilleryProjectileDispatch* ProjectileDispatch = MyDispatch->GetWorld()->GetSubsystem<UArtilleryProjectileDispatch>();
 		if (ProjectileDispatch)
 		{
-			FVector TargetLocation = UArtilleryLibrary::GetLocalPlayer_UNSAFE()->GetActorLocation();
+			FVector TargetLocation = UArtilleryLibrary::GetLocalPlayer_UNSAFE(MyDispatch)->GetActorLocation();
 			FVector StartLocation = FiringPointComponent->GetComponentLocation();
 			TArray<FGameplayTag> ProjectileTags;
 			ProjectileTags.Add(TAG_EnemyProjectile);
 			FSkeletonKey MissileKey = ProjectileDispatch->QueueProjectileInstance(
 				TEXT("Shell"), MyGunKey, StartLocation, FVector::Zero(), 1.6f, Layers::ENEMYPROJECTILE, &ProjectileTags);
-			StructureFullTL(ProjectileArc,TL_ArcingProjectile,FTArcingProjectile, MissileKey, TargetLocation, StartLocation, 180, 8000.f);
+			StructureFullTL_Dispatch(MyDispatch,
+				ProjectileArc,TL_ArcingProjectile,FTArcingProjectile, MissileKey, TargetLocation, StartLocation, 180, 8000.f);
 			MyDispatch->RequestAddTicklite(ProjectileArc, Early);
 		}
 		

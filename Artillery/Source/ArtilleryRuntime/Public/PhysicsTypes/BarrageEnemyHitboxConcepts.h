@@ -570,7 +570,7 @@ inline bool UBarrageArmorPiece::RegistrationImplementation()
 			MyUniqueAttributes.Add(MAXHEALTH, InitializeArmorHPTo);
 			MyUniqueAttributes.Add(PROPOSED_DAMAGE, 0.0);
 			MyAttributes = MakeShareable(new FAttributeMap(GetMyKey(), ADispatch, MyUniqueAttributes));
-			FPassDamage::CreatePassthrough(GetMyKey(), MyParentObjectKey);
+			FPassDamage::CreatePassthrough(UArtilleryDispatch::GetTickliteWorker(this), GetMyKey(), MyParentObjectKey);
 			ADispatch->REGISTER_ENTITY_FINAL_TICK_RESOLVER(GetMyKey());
 			return true;
 		}
@@ -606,7 +606,7 @@ inline bool UBarrageBreakableShield::RegistrationImplementation()
 			MyUniqueAttributes.Add(AttribKey::ShieldsRechargePerTick, ShieldRegen);
 			MyUniqueAttributes.Add(PROPOSED_DAMAGE, 0.0);
 			MyAttributes = MakeShareable(new FAttributeMap(GetMyKey(), ADispatch, MyUniqueAttributes));
-			FPassDamage::CreatePassthrough(GetMyKey(), MyParentObjectKey, AttribKey::Shields,
+			FPassDamage::CreatePassthrough(UArtilleryDispatch::GetTickliteWorker(this), GetMyKey(), MyParentObjectKey, AttribKey::Shields,
 			                               ShieldRegen * (ArtilleryTickHertz / 2));
 			ADispatch->REGISTER_ENTITY_FINAL_TICK_RESOLVER(GetMyKey());
 			return true;
@@ -780,12 +780,12 @@ inline bool UChaosTrackingArmorPiece::RegistrationImplementation()
 		// If true damage stops here (shield takes damage, parent does not).
 		if (!bAbsorbDamage)
 		{
-			FPassDamage::CreatePassthrough(GetMyKey(), MyParentObjectKey);
+			FPassDamage::CreatePassthrough(UArtilleryDispatch::GetTickliteWorker(this), GetMyKey(), MyParentObjectKey);
 		}
 		else
 		{
 			// If we absorb damage forward the event tag so the AI knows it was hit even if it took no HP damage
-			FForwardDamageEvent::CreateForwarder(GetMyKey(), MyParentObjectKey);
+			FForwardDamageEvent::CreateForwarder(UArtilleryDispatch::GetTickliteWorker(this), GetMyKey(), MyParentObjectKey);
 		}
 
 		// Register resolver to handle health reduction on the shield itself

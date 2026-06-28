@@ -1,5 +1,6 @@
 ﻿#include "FBristleconeSender.h"
 
+#include "UBristleconeConstants.h"
 #include "UBristleconeWorldSubsystem.h"
 #include "Common/UdpSocketBuilder.h"
 

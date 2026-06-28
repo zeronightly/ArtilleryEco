@@ -59,7 +59,7 @@ namespace ExportTemplateStream
 
 		uint64_t GetHighestGuaranteedInput()
 		{
-			return highestInput-1;
+			return highestInput == 0 ?  0 : highestInput-1 ; //this will cause peek to return a nullopt in the empty case as peek cannot be against highest input 
 		}
 		
 		uint64_t highestInput = 0; // volatile is utterly useless for its intended purpose. 

@@ -2,10 +2,19 @@
 #include "ArtilleryDispatch.h"
 #include "FArtilleryGun.h"
 #include "NeedA.h"
+#include "ABarragePlayerController.h"
+#include "Engine/GameInstance.h"
+#include "GameFramework/GameState.h"
+#include "GameFramework/PlayerState.h"
 #include <FTEntityFinalTickResolver.h>
 #include <FTGunFinalTickResolver.h>
 #include <FTJumpTimer.h>
+#include "imgui.h"
 
+#include "CloverDispatch.h"
+// #ifdef WITH_EDITOR
+// #include "Editor.h"
+// #endif
 #include "FTApplyForceOnExpire.h"
 #include "LocomotionParams.h"
 #include "FTProjectileFinalTickResolver.h"
@@ -21,7 +30,6 @@ bool UArtilleryDispatch::RegistrationImplementation()
 	UE_LOG(LogTemp, Warning, TEXT("ArtilleryDispatch:Subsystem: Online"));
 	AttributeSetToDataMapping = MakeShareable(new AttrCuckoo());
 	RequestRouter = MakeShareable(new F_INeedA());
-	TL_ThreadedImpl::ADispatch = &ArtilleryTicklitesWorker_LockstepToWorldSim;
 	TransformUpdateQueue = BarrageDispatch->GameTransformPump;
 	UCanonicalInputStreamECS* InputECS = GetWorld()->GetSubsystem<UCanonicalInputStreamECS>();
 	ArtilleryAsyncWorldSim.CablingControlStream = InputECS->getNewStreamConstruct(APlayer::CABLE);
@@ -44,13 +52,13 @@ bool UArtilleryDispatch::RegistrationImplementation()
 	ArtilleryAsyncWorldSim.StartTicklitesSim = StartTicklitesSim;
 	ArtilleryAsyncWorldSim.StartRunAhead = StartRunAhead;
 	ArtilleryAsyncWorldSim.InputRingBuffer = MakeShareable(new PacketQ(256));
-	NetworkAndControls->QueueOfReceived = ArtilleryAsyncWorldSim.InputRingBuffer;
 	UCablingWorldSubsystem* DirectLocalInputSystem = GetWorld()->GetSubsystem<UCablingWorldSubsystem>();
 	ArtilleryAsyncWorldSim.InputSwapSlot = MakeShareable(new IncQ(256));
 	DirectLocalInputSystem->DestructiveChangeLocalOutboundQueue(ArtilleryAsyncWorldSim.InputSwapSlot);
 	UCanonicalInputStreamECS* InputStreamECS = GetWorld()->GetSubsystem<UCanonicalInputStreamECS>();
 	ArtilleryAsyncWorldSim.ContingentInputECSLinkage = InputStreamECS;
 	ArtilleryAsyncWorldSim.ContingentPhysicsLinkage = BarrageDispatch;
+	ArtilleryAsyncWorldSim.UTransformLink = TransformDispatch;
 	//IF YOU REMOVE THIS. EVERYTHING EXPLODE. IN A BAD WAY.
 	//TARRAY IS A VALUE TYPE. SO IS TRIPLEBUFF I THINK.
 	ArtilleryAsyncWorldSim.RequestorQueue_Abilities_TripleBuffer = RequestorQueue_Abilities_TripleBuffer;
@@ -62,30 +70,36 @@ bool UArtilleryDispatch::RegistrationImplementation()
 	WorldSim_Thread->Create(&ArtilleryAsyncWorldSim, TEXT("ARTILLERY_WORLDSIM_ONLINE."));
 	WorldSim_AI_Thread->Create(&ArtilleryAIWorker_LockstepToWorldSim, TEXT("ARTILLERY_AISIM_ONLINE."));
 	Ticklite_Thread->Create(&ArtilleryTicklitesWorker_LockstepToWorldSim,TEXT("ARTILLERY_TICKLITES_ONLINE."));
-
-	SelfPtr = this;
-	
+	//clover is obligated to exist by now, because it depends on artillery.
+	Clover = GetWorld()->GetSubsystem<UCloverDispatch>();
 	// In the editor we can listen to pausing and resuming to flip a bool on the artillery async world sim runner
-#if WITH_EDITOR
-	FEditorDelegates::PausePIE.AddWeakLambda(this, [this](bool bIsSimulating) 
-	{
-		if (!bIsSimulating) 
-		{
-			ArtilleryAsyncWorldSim.bPaused = true;
-			UE_LOG(LogTemp, Log, TEXT("Pausing artillery sim from unreal being paused"))
-		}
-	});
-	FEditorDelegates::ResumePIE.AddWeakLambda(this, [this](bool bIsSimulating) 
-	{
-	if (!bIsSimulating) 
-	{
-		ArtilleryAsyncWorldSim.bPaused = false;
-		UE_LOG(LogTemp, Log, TEXT("Unpausing artillery sim from unreal being unpaused"))
-	}
-});
-#endif
+// #if WITH_EDITOR
+// 	FEditorDelegates::PausePIE.AddWeakLambda(this, [this](bool bIsSimulating) 
+// 	{
+// 		if (!bIsSimulating) 
+// 		{
+// 			ArtilleryAsyncWorldSim.bPaused = true;
+// 			UE_LOG(LogTemp, Log, TEXT("Pausing artillery sim from unreal being paused"))
+// 		}
+// 	});
+// 	FEditorDelegates::ResumePIE.AddWeakLambda(this, [this](bool bIsSimulating) 
+// 	{
+// 	if (!bIsSimulating) 
+// 	{
+// 		ArtilleryAsyncWorldSim.bPaused = false;
+// 		UE_LOG(LogTemp, Log, TEXT("Unpausing artillery sim from unreal being unpaused"))
+// 	}
+// });
+// #endif
 	
 	return true;
+}
+
+void UArtilleryDispatch::SetupNewPlayer(AActor* Player)
+{
+	// Stubbed: full implementation requires per-player Bristlecone networking (DeltaDelta port).
+	// See PatchSalvage/rollback_integration.patch for the verbatim body.
+	UE_LOG(LogTemp, Warning, TEXT("SetupNewPlayer called but per-player networking not yet ported"));
 }
 
 //Place at the end of the latest initialization-like phase.
@@ -136,7 +150,7 @@ void UArtilleryDispatch::ThreadSetup()
 	}
 }
 
-void UArtilleryDispatch::FinishAndCleanupThreadsAndTicklites() 
+void UArtilleryDispatch::FinishAndCleanupThreadsAndTicklites()
 {
 	IsReady = false;
 	if (__IsWorldRecordFullyReady)
@@ -175,12 +189,17 @@ void UArtilleryDispatch::FinishAndCleanupThreadsAndTicklites()
 		WorldSim_Thread.Reset();
 	}
 
+	HoldOpen.Reset();
+	GameplayTagContainerToDataMapping->Empty();
+	RequestorQueue_Abilities_TripleBuffer->Reset();
+	RequestorQueue_Locomos->Empty();
+	GunToFiringFunctionMapping->Empty();
+	AttributeSetToDataMapping->clear();
+	IdentSetToDataMapping->clear();
 	GameplayTagContainerToDataMapping->Empty();
 	KeyToControlliteMapping->Empty();
 	VectorSetToDataMapping->Empty();
 	GunByKey->Empty();
-	HoldOpen.Reset();
-	SelfPtr = nullptr;
 }
 
 void UArtilleryDispatch::Initialize(FSubsystemCollectionBase& Collection)
@@ -194,6 +213,12 @@ void UArtilleryDispatch::Initialize(FSubsystemCollectionBase& Collection)
 
 void UArtilleryDispatch::PostInitialize()
 {
+#if WITH_EDITOR
+	if (ArtilleryDebugger.IsValid())
+	{
+		ArtilleryDebugger->Initialize(this);
+	}
+#endif
 	Super::PostInitialize();
 }
 
@@ -424,10 +449,9 @@ void UArtilleryDispatch::ProcessRequestRouterGameThread()
 							LogTemp,
 							Fatal,
 							TEXT(
-								"ArtilleryDispatch::ProcessRequestRouterGameThread: Received Request Router request for unimplemented request type: [%d]"
+								"ArtilleryDispatch::ProcessRequestRouterGameThread: Received Request Router request for unimplemented request type: [%d]. Skipping, but this should never happen."
 							),
 							Request.GetType());
-						throw;
 					}
 				}
 			}
@@ -438,6 +462,12 @@ void UArtilleryDispatch::ProcessRequestRouterGameThread()
 void UArtilleryDispatch::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+#ifdef WITH_EDITOR
+	if (ArtilleryDebugger.IsValid())
+	{
+		ArtilleryDebugger->Draw(DeltaTime);
+	}
+#endif
 	RunGuns(); // ALL THIS WORK. FOR THIS?! (Okay, that's really cool)
 	
 	// both transform dispatch and gamesim must be ready. Otherwise, let the queue build up.
@@ -479,7 +509,7 @@ FGunKey UArtilleryDispatch::GetGun(const FString& GunDefinitionID, const ActorKe
 				if (FreshBakedGun && HoldOpen)
 				{
 					FreshBakedGun->UpdateProbableOwner(ProbableOwner);
-
+					FreshBakedGun->MyDispatch = UArtilleryDispatch::Get(GetWorld());
 					//TODO find an alternative that's truly deterministic and doesn't suck ten million bees. we need a ticker that's monotonic
 					// do we? or can we achieve outcome determinism without it? I think we can...
 					FGunKey Key = FGunKey(GunDefinitionID, F_INeedA::HashDownTo32(ProbableOwner + ++monotonkey));
@@ -522,7 +552,8 @@ bool UArtilleryDispatch::IsGunLive(FSkeletonKey Key)
 	if (__IsWorldRecordFullyReady)
 	{
 		TSharedPtr<TMap<FSkeletonKey, TSharedPtr<FArtilleryGun>>> HoldOpenGuns = GunByKey;
-		if (UArtilleryDispatch::SelfPtr != nullptr && HoldOpenGuns && HoldOpenGuns.IsValid() && HoldOpenGuns->Num() > 0
+		if ( !this->IsReadyForFinishDestroy() && this->IsInitialized() 
+			&& HoldOpenGuns && HoldOpenGuns.IsValid() && HoldOpenGuns->Num() > 0
 			&& HoldOpenGuns.Get() && IsReady)
 		{
 			return HoldOpenGuns->IsEmpty() ? false : HoldOpenGuns->Contains(Key);
@@ -597,6 +628,8 @@ AttrPtr UArtilleryDispatch::AddAttrib(const FSkeletonKey Owner, AttribKey Attrib
 //Do not swap this to a ref, because a ref is a ref. If you want a no copy op, first off,
 //our keys are the same size as a pointer so unless your code is guaranteed to inline, it's
 //not more efficient and may be less efficient. second, use GetAttribRequired. it's for that.
+//finally, the expensive part here is actually the shared ptr creation. if you're going to fiddle with this,
+//just ask me for the hazard pointer implementation --JMK
 AttrPtr UArtilleryDispatch::GetAttrib(const FSkeletonKey Owner, AttribKey Attrib) const
 {
 	AttrMapPtr AttributeMap;
@@ -732,8 +765,37 @@ void UArtilleryDispatch::AddTagToEntity(const FSkeletonKey Owner, const FGamepla
 	GameplayTagContainerToDataMapping->Add(Owner, TagToAdd);
 }
 
+void UArtilleryDispatch::AddTagToEntity(const FSkeletonKey Owner, const FNativeGameplayTag& TagToAdd) const
+{
+	if (Clover->SetsByTag.contains(TagToAdd))
+	{
+		FCloverResultSet LiveSet;
+		Clover->SetsByTag.visit(TagToAdd, [&LiveSet](auto& a) { LiveSet = a.second; });
+		LiveSet.UnderlyingKeys.emplace(Owner);
+		LiveSet.Bloomlike.Add(Owner); //we have to add to both or it'll cause false negatives. 
+		LiveSet.Dirtied_AllowsFalseFalses = true;
+	}
+	GameplayTagContainerToDataMapping->Add(Owner, TagToAdd);
+	
+}
+
+
 void UArtilleryDispatch::RemoveTagFromEntity(const FSkeletonKey Owner, const FGameplayTag& TagToRemove) const
 {
+	GameplayTagContainerToDataMapping->Remove(Owner, TagToRemove);
+}
+
+void UArtilleryDispatch::RemoveTagFromEntity(const FSkeletonKey Owner, const FNativeGameplayTag& TagToRemove) const
+{
+	if (Clover->SetsByTag.contains(TagToRemove))
+	{
+		FCloverResultSet LiveSet;
+		Clover->SetsByTag.visit(TagToRemove, [&LiveSet](auto& a) { LiveSet = a.second; });
+		LiveSet.UnderlyingKeys.erase(Owner);
+		//LiveSet.Bloomlike does not support remove
+		//instead, it will be rebuilt eventually. this only causes false positives.
+		LiveSet.Dirtied_AllowsFalseFalses = true;
+	}
 	GameplayTagContainerToDataMapping->Remove(Owner, TagToRemove);
 }
 
@@ -1032,13 +1094,13 @@ void UArtilleryDispatch::RERunGuns()
 {
 	if (__IsWorldRecordFullyReady && ActionsToReconcile && ActionsToReconcile.IsValid())
 	{
-		//throw;
+		
 	}
 }
 
 void UArtilleryDispatch::RERunLocomotions()
 {
-	//throw;
+	
 }
 
 void UArtilleryDispatch::LoadGunData()
