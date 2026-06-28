@@ -1,8 +1,9 @@
 ﻿#pragma once
 
 #include <chrono>
+#include "CoreMinimal.h"
 #include "UnsignedNarrowTime.h"
-
+#pragma pack(push, 1)
 template<
 	typename CLONE_TYPE,
 	unsigned int CLONE_SIZE>
@@ -108,15 +109,15 @@ public:
 
 private:
 	// Packet headers
-	//thanks to packing, there's not a ton of advantage to using a single long here
-	//we could set the pack pragma and buy back the space, but ops on pack 1 objects
-	//are often slower than they're worth. we're still under the 64 byte threshold
-	//at 8*4 (32) + UDP\IP headers (28) with the 8 byte clone types.
-	//When we have a 16 byte use case, I'll come back and tidy this up
-	//by making those headers an optional type component
-	//but for now, the extra debug info is really really useful.
+	//we use pack 1 because I made a mistake. 
+	//TODO: eliminate pragma pack 1 by converting the header into a single 8 byte block.
+	//THIS REQUIRES CHANGES TO THE RUST CODE, TODO: particularly decrypt\encrypt
+	//TODO: do not ship final networking like this, please. please.
 	uint16 cycle_metadata;
 	uint16 transfer_time;
 	// Data clone
 	CLONE_TYPE clone_array[CLONE_SIZE];
+	uint32_t reserved; //this will almost certainly be used for some controls metadata.
+
 };
+#pragma pack(pop)
