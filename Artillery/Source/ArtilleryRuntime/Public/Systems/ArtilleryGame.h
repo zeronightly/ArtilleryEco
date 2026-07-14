@@ -1,26 +1,34 @@
 #pragma once
+#include <InventoryDispatch.h>
+
 #include "ArtilleryActorControllerConcepts.h"
 #include "ArtilleryCommonTypes.h"
 #include "LocomotionParams.h"
 #include "NeedA.h"
+#include "Structures/ConcurrencyTypes/ParallelFixedQueueTypes.h"
 
 class UCanonicalInputStreamECS;
 class UBarrageDispatch;
 class UArtilleryDispatch;
-class FArtilleryInputManager;
+class FInputRollback;
 class FArtilleryStateManager;
 
 class FArtilleryGame {
 public:
 	FArtilleryGame();
 
+	
+	FParallelFixedSequencingQueue VerifiedCreateDeadliner;
+	FParallelFixedSequencingQueue VerifiedEventDeadliner;
+	FParallelFixedSequencingQueue VerifiedTriggerDeadliner;
 	void Initialize(UWorld* World);
 	void Shutdown();
-
+	
 	// called each possible frame, not fixed
 	void OnFrameUpdate();
 	// Game simulation tick
 	void Tick();
+	void RunEventsRequiringVerifiedFrames(uint32 Sequence, bool bIsVerified);
 	void Simulate(uint32 Sequence, const TMap<PlayerKey, FArtilleryShell>& PrevInputs, const TMap<PlayerKey, FArtilleryShell>& Inputs, bool bIsVerified);
 
 	void RollbackAndResimulate(uint32 FromFrame, bool bUseAuthorityIfAvailable = true);
@@ -60,7 +68,7 @@ protected:
 
 private:
 	bool bRunning = false;
-	TSharedPtr<F_INeedA> RequestRouter;
+	TSharedPtr<FRequestRouter> RequestRouter;
 	uint32_t TickliteNow = 0;
 	FSharedEventRef StartRunAhead;
 	TSharedPtr<BufferedMoveEvents>  Locomos_BufferNotThreadSafe;
@@ -72,10 +80,11 @@ private:
 	ITickHeavy* ParticleSystemPointer = nullptr;
 	ITickHeavy* ProjectileSystemPointer = nullptr;
 	TSharedPtr<FArtilleryStateManager> StateManager = nullptr;
-	TSharedPtr<FArtilleryInputManager> InputManager = nullptr;
+	TSharedPtr<FInputRollback> InputManager = nullptr;
 	TWeakObjectPtr<UArtilleryDispatch> ArtilleryDispatch = nullptr;
 	TObjectPtr<UCanonicalInputStreamECS> ContingentInputECSLinkage = nullptr;
 	TWeakObjectPtr<UBarrageDispatch> PhysicsManager = nullptr;
+	TWeakObjectPtr<UInventoryDispatch> ItemsAndEventsManager = nullptr;
 	TWeakObjectPtr<UWorld> GameWorld = nullptr;
 	bool bIsServer = false;
 	bool bIsRolling = false;

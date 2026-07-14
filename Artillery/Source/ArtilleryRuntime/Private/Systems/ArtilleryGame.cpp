@@ -1,7 +1,7 @@
 #include "ArtilleryGame.h"
 
 #include "ArtilleryDispatch.h"
-#include "ArtilleryInputManager.h"
+#include "InputRollback.h"
 #include "BarrageDispatch.h"
 #include "CanonicalInputStreamECS.h"
 #include "CoordinateUtils.h"
@@ -48,7 +48,7 @@ FArtilleryGame::FArtilleryGame()
 
 {
 	StateManager = MakeShared<FArtilleryStateManager>(MaxRollbacks*1.5);
-	InputManager = MakeShared<FArtilleryInputManager>();
+	InputManager = MakeShared<FInputRollback>();
 	CurrentSequence = 0;
 }
 
@@ -107,7 +107,7 @@ void FArtilleryGame::Initialize(UWorld* World)
 	ContingentInputECSLinkage = GameWorld->GetSubsystem<UCanonicalInputStreamECS>();
 	ArtilleryDispatch = GameWorld->GetSubsystem<UArtilleryDispatch>();
 	PhysicsManager = GameWorld->GetSubsystem<UBarrageDispatch>();
-
+	ItemsAndEventsManager = GameWorld->GetSubsystem<UInventoryDispatch>();
 	if (!ensure(ArtilleryDispatch.IsValid()))
 	{
 		UE_LOG(LogTemp, Error, TEXT("ArtilleryGame: Required subsystems not found"));
@@ -142,11 +142,7 @@ void FArtilleryGame::Tick()
 {
 	if (RequestorQueue_Abilities_TripleBuffer == nullptr)
 	{
-#ifdef UE_BUILD_SHIPPING
 		return;
-#else
-		throw; // this is a BUG. A BAD ONE.
-#endif
 	}
 
 	bRunning = true;
@@ -163,18 +159,46 @@ void FArtilleryGame::Tick()
 	}
 }
 
+//Okay, so verb tense is gonna get fucked here.
+//this runs the events accumulated over the simulation of the previous verified frame at the start
+//of the current verified frame. Weirdly, this means we actually do have "half frames" as an engine construct.
+//I don't think we ever wanna use that, but it exists. The game only keeps track of _when_ this stuff should run.
+//Clover and other subsystems actually run the events. This ends up meaning that we can in fact guarantee that events are run At Most Once.
+//This allows us to shove stuff into the past where once it runs, it will always have run.
+//This is useful for really compute expensive operations, events that require extremely high certainty like player death,
+//or ops that - if spuriously repeated - might blow up the gpu render pipeline, player experience, or web backend 
+void FArtilleryGame::RunEventsRequiringVerifiedFrames(uint32 Sequence, bool bIsVerified)
+{
+	if (bIsVerified)
+	{
+		auto KeysToDeploy = VerifiedEventDeadliner.UpdateAndConsume();
+		auto EventKeys = VerifiedEventDeadliner.UpdateAndConsume();
+		auto TriggeredKeys = VerifiedTriggerDeadliner.UpdateAndConsume();
+		//OkLetsGo
+		ItemsAndEventsManager->CreateOnTickVerification(KeysToDeploy);
+		ItemsAndEventsManager->RunOnTickVerification(EventKeys);
+		ItemsAndEventsManager->TriggerOnTickVerification(TriggeredKeys);
+		ItemsAndEventsManager->RunDelayedTriggers();
+	}
+	
+}
+
 void FArtilleryGame::Simulate(uint32 Sequence, const TMap<PlayerKey, FArtilleryShell>& PrevInputs, const TMap<PlayerKey, FArtilleryShell>& Inputs, bool bIsVerified)
 {
 	auto& AbilitiesWriteBuffer =
 		RequestorQueue_Abilities_TripleBuffer->GetWriteBuffer();
 
+
+	
 	FArtilleryDataBuffer Data;
 	Data.SequenceNumber = Sequence;
 	Data.Inputs = Inputs;
 	Data.bIsValid = true;
 	Data.TimeStamp = TickliteNow;
 
-	//sorted; locomotion-Add and pattern-matcher invocation order must agree with the server's.
+	RunEventsRequiringVerifiedFrames(Sequence, bIsVerified);
+	
+	//sorted; locomotion-Add and pattern-matcher invocation order must agree for everyone.
 	for (PlayerKey Player : SortedPlayerKeys(Inputs))
 	{
 		const FArtilleryShell& Shell = Inputs[Player];
@@ -533,9 +557,9 @@ void FArtilleryGame::ProcessRequestRouterBusyWorkerThread()
 {
 	if (RequestRouter)
 	{
-		for (F_INeedA::FeedMap& WorkerFeedMap : RequestRouter->BusyWorkerAcc)
+		for (FRequestRouter::FeedMap& WorkerFeedMap : RequestRouter->BusyWorkerAcc)
 		{
-			TSharedPtr<F_INeedA::ThreadFeed> HoldOpen;
+			TSharedPtr<FRequestRouter::ThreadFeed> HoldOpen;
 			if (WorkerFeedMap.Queue && ((HoldOpen = WorkerFeedMap.Queue)) && WorkerFeedMap.That != std::thread::id()) //if there IS a thread.
 			{
 				FRequestThing RouterQueue;

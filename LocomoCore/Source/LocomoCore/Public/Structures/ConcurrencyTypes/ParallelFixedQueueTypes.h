@@ -25,7 +25,7 @@ protected:
 	constexpr static size_t Width = 2; // producer threads supported.
 	constexpr static size_t QueueHeight = 256; //yeaaaaaah, this is a problem.....
 	constexpr static char FreeLock = -1;
-	std::thread::id Consumer;
+	std::thread::id Consumer = {};
 	std::atomic_char KeyMaker = 0;
 	using FBlock = std::array<Payload, QueueHeight>;
 	std::array<FBlock, Width> Queues;
@@ -37,13 +37,14 @@ protected:
 	//if you expire more than 2^60 things, I salute you. nevermind triggering an actual roll over.
 	std::array<uint64_t, Width> BelievedWaterMarks = {};
 	std::array<uint64_t, Width> WaterMarks = {};
+	bool bound;
 public:
 	bool Add(uint16_t MajorOrder, FSkeletonKey MinorOrder)
 	{
 		static thread_local char MyIndex;
 		static thread_local char QueueToCheck;
-		static thread_local std::once_flag bound;
-		std::call_once(bound, [this]
+		
+		if(!bound)
 		{
 			MyIndex = KeyMaker++;
 			WaterMarks[MyIndex] = 0;
@@ -53,8 +54,9 @@ public:
 			{
 				return false; //c'mon...
 			}
+			bound = true;
 			return true;
-		});
+		};
 		char captured = MyIndex;
 		while (captured != FreeLock)
 		{
@@ -97,14 +99,16 @@ template class FParallelFixedQueue<FStampedKeyPair>;
 class LOCOMOCORE_API FParallelFixedSequencingQueue : public FParallelFixedQueue<FStampedKeyPair>
 {
 	std::unordered_map<uint32_t, std::vector<FSkeletonKey>> ByTick;
-
+	bool bound;
 public:
 	//fails if adding to the now or max
 	//waits if anything else is adding.
 	explicit FParallelFixedSequencingQueue()
-		: ByTick(128) //one second worth of ticks.
+		: ByTick(128), bound(false)
+	//one second worth of ticks.
 	{
 	}
+
 	std::vector<FSkeletonKey> UpdateAndConsume();
 	void Reset();
 };

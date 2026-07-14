@@ -29,7 +29,7 @@ constexpr int ALLOWED_THREADS_FOR_ARTILLERY = 64;
 //to _______________ ________ until ____ __ _________ and fix later.
 // Find in files for YAGAMETHREADBOYRUNNETHREQUESTSHERE will show you the code in artillery dispatch that processes gamethread
 // and YABUSYTHREADBOYRUNNETHREQUESTSHERE will show you the equivalent code in our mutual friend artillery busy worker.
-class ARTILLERYRUNTIME_API F_INeedA //Frick
+class ARTILLERYRUNTIME_API FRequestRouter //Frick
 {
 public:
 	using GameThreadRequestQ = TCircularQueue<FRequestGameThreadThing>;
@@ -40,7 +40,7 @@ public:
 		return FMMM::FastHash6432( FMMM::FastHash64(inValue));
 	}
 	
-	F_INeedA()
+	FRequestRouter()
 	{
 	}
 

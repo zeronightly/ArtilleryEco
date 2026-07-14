@@ -97,7 +97,7 @@ public:
 		std::hash<std::thread::id> hasher;
 		uint32 low = HashCombineFast(
 				HashCombineFast(GetTypeHash(SwarmKineManager),  FMMM::FastHash32(++instances_generated)),
-				F_INeedA::HashDownTo32( hasher(std::this_thread::get_id())));
+				FRequestRouter::HashDownTo32( hasher(std::this_thread::get_id())));
 		uint64 combo = low;
 		combo = (combo << 32) + low;
 		return FProjectileInstanceKey(combo);

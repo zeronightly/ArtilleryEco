@@ -1,6 +1,8 @@
 ﻿#include "FArtilleryGun.h"
 #include "ArtilleryBPLibs.h"
 
+
+
 FArtilleryGun::~FArtilleryGun()
 {
 	if(MyDispatch && MyDispatch->IsGunLive(MyGunKey))
@@ -27,7 +29,7 @@ FArtilleryGun::~FArtilleryGun()
 
 void FArtilleryGun::PreFireGun(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
                                const FGameplayAbilityActivationInfo ActivationInfo, const EventBufferInfo FireAction,
-                               const FGameplayEventData* TriggerEventData, bool RerunDueToReconcile, int DallyFramesToOmit)
+                               const FGameplayEventData* TriggerEventData, bool RerunDueToReconcile, int DallyFramesToOmit, bool VerifiedFrame)
 {
 	// Delegate type:
 	// DECLARE_DELEGATE_FiveParams FArtilleryAbilityStateAlert

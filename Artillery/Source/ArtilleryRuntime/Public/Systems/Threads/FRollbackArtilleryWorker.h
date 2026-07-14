@@ -19,6 +19,8 @@
 // FRollbackArtilleryWorker delegates the entire simulation to FArtilleryGame,
 // only retaining: thread housekeeping, the deferred-start gate
 // (CheckNeedToDelaySimulation), and Loading-Process-Interface registration.
+//TODO (prefer merge)
+//This needs to be merged with or supersede ArtilleryBusyWorker to bring rollback online.
 class IArtilleryLoadingProcessInterface;
 
 class FRollbackArtilleryWorker : public FRunnable {

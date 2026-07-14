@@ -21,6 +21,8 @@
 // no, seriously. with all the other sacrifices we've made occupying one core with game-sim physics, reconciliation,
 // rollbacks, and pattern matching is a pretty good bargain. we'll want to revisit this for servers, of course.
 
+class FArtilleryGame;
+
 class FArtilleryBusyWorker : public FRunnable {
 	public:
 	FArtilleryBusyWorker();
@@ -61,7 +63,7 @@ class FArtilleryBusyWorker : public FRunnable {
 	TSharedPtr<ArtilleryControlStream>  CablingControlStream;
 	TSharedPtr<ArtilleryControlStream> BristleconeControlStream;
 	TSharedPtr<ArtilleryControlStream> ThistleControlStream;
-	TSharedPtr<F_INeedA> RequestRouter;
+	TSharedPtr<FRequestRouter> RequestRouter;
 	TheCone::RecvQueue InputRingBuffer;
 	TheCone::SendQueue InputSwapSlot;
 	UCanonicalInputStreamECS* ContingentInputECSLinkage = nullptr;
@@ -71,6 +73,8 @@ class FArtilleryBusyWorker : public FRunnable {
 	std::atomic<bool> bPaused = false;
 private:
 	void Cleanup();
+	
+	TSharedPtr<FArtilleryGame> Game;
 	// monotonic (race-fix 2026-06-25): true at construction, only ever set false by Cleanup()/Stop()/Exit().
 	// Init() must NOT re-raise it -- a late-scheduled thread re-setting running=true after teardown set it false
 	// is what orphaned the worker and hung the jthread join on exit.

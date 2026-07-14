@@ -100,7 +100,7 @@ class ARTILLERYRUNTIME_API UArtilleryDispatch : public UTickableWorldSubsystem, 
 	friend class FArtilleryTicklitesWorker<UArtilleryDispatch>;
 	friend class UCanonicalInputStreamECS;
 	friend class UArtilleryLibrary;
-	friend class UCloverDispatch;
+	friend class UInventoryDispatch;
 
 public:
 	static UArtilleryDispatch* Get(UWorld& World)
@@ -146,7 +146,7 @@ public:
 	TObjectPtr<UTransformDispatch> TransformDispatch;
 	UPROPERTY()
 	TObjectPtr<UBarrageDispatch> BarrageDispatch;
-	UCloverDispatch* Clover;
+	UInventoryDispatch* Inventory;
 
 
 	using MachineLet = IArtilleryControllite*;
@@ -176,8 +176,8 @@ public:
 	void SetupNewPlayer(AActor* Player);
 
 	OnArtilleryActivated BindToArtilleryActivated;
-	friend class F_INeedA;
-	TSharedPtr<F_INeedA> RequestRouter;
+	friend class FRequestRouter;
+	TSharedPtr<FRequestRouter> RequestRouter;
 
 	ArtilleryTime GetShadowNow() const
 	{

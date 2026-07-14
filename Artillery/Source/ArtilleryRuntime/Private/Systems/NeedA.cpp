@@ -5,7 +5,7 @@
 //This is identical to the design found in Barrage, since it ended up working beautifully.
 inline thread_local extern int32 MyARTILLERYIndex = ALLOWED_THREADS_FOR_ARTILLERY + 1;
 
-void F_INeedA::Feed()
+void FRequestRouter::Feed()
 {
 	FScopeLock GrantFeedLock(&GrowOnlyAccLock);
 		
@@ -18,7 +18,7 @@ void F_INeedA::Feed()
 	++ThreadAccTicker;
 }
 
-FGrantWith F_INeedA::NewUnboundGun(FSkeletonKey Self, FGunKey NameSetIDUnset,  FARelatedBy EquippedAs, ArtilleryTime Stamp)
+FGrantWith FRequestRouter::NewUnboundGun(FSkeletonKey Self, FGunKey NameSetIDUnset,  FARelatedBy EquippedAs, ArtilleryTime Stamp)
 {
 	FRequestGameThreadThing MyRequest(ArtilleryRequestType::GetAnUnboundGun);
 	MyRequest.Stamp = Stamp;
@@ -30,7 +30,7 @@ FGrantWith F_INeedA::NewUnboundGun(FSkeletonKey Self, FGunKey NameSetIDUnset,  F
 }
 
 //this requires a registered bonekine/bonekey pair, or a requestor kine and a key and a damn good reason.
-FGrantWith F_INeedA::SceneComponentMoved(FBoneKey ComponentArtilleryKey, ArtilleryTime Stamp, FVector Pos, FRotator Rot)
+FGrantWith FRequestRouter::SceneComponentMoved(FBoneKey ComponentArtilleryKey, ArtilleryTime Stamp, FVector Pos, FRotator Rot)
 {
 	if (this)
 	{
@@ -45,7 +45,7 @@ FGrantWith F_INeedA::SceneComponentMoved(FBoneKey ComponentArtilleryKey, Artille
 	return FGrantWith(Stamp).Set(FGrantWith::Nullable);
 }
 
-FGrantWith F_INeedA::MobileAI(FSkeletonKey AIEntity, ArtilleryTime Stamp)
+FGrantWith FRequestRouter::MobileAI(FSkeletonKey AIEntity, ArtilleryTime Stamp)
 {
 	FRequestThing MyRequest(ArtilleryRequestType::BindAI);
 	MyRequest.Stamp = Stamp;
@@ -57,7 +57,7 @@ FGrantWith F_INeedA::MobileAI(FSkeletonKey AIEntity, ArtilleryTime Stamp)
 //the following statement must return a non-null element
 //GunToFiringFunctionMapping->Find(Request.Gun)->ExecuteIfBound(GunByKey->FindRef(Request.Gun), false);
 //in other words, it MUST be bound already as per any other gun you wish to fire. globspeebcormbrad
-FGrantWith F_INeedA::GunFired(FGunKey Target, ArtilleryTime Stamp)
+FGrantWith FRequestRouter::GunFired(FGunKey Target, ArtilleryTime Stamp)
 {
 	if(this)
 	{
@@ -73,7 +73,7 @@ FGrantWith F_INeedA::GunFired(FGunKey Target, ArtilleryTime Stamp)
 	return FGrantWith(Stamp).Set(FGrantWith::Eventual | FGrantWith::GameThread);
 }
 
-FGrantWith F_INeedA::GunFiredAtTime(FGunKey Target, ArtilleryTime Stamp)
+FGrantWith FRequestRouter::GunFiredAtTime(FGunKey Target, ArtilleryTime Stamp)
 {
 	if(this)
 	{
@@ -89,7 +89,7 @@ FGrantWith F_INeedA::GunFiredAtTime(FGunKey Target, ArtilleryTime Stamp)
 	return FGrantWith(Stamp).Set(FGrantWith::Nullable);
 }
 
-FGrantWith F_INeedA::TagReferenceModel(FSkeletonKey Target, ArtilleryTime Stamp, FConservedTags ValidSharedPtr)
+FGrantWith FRequestRouter::TagReferenceModel(FSkeletonKey Target, ArtilleryTime Stamp, FConservedTags ValidSharedPtr)
 {
 	if (this)
 	{
@@ -104,7 +104,7 @@ FGrantWith F_INeedA::TagReferenceModel(FSkeletonKey Target, ArtilleryTime Stamp,
 	return FGrantWith(Stamp).Set(FGrantWith::Nullable);
 }
 
-FGrantWith F_INeedA::NoTagReferenceModel(FSkeletonKey Target, ArtilleryTime Stamp)
+FGrantWith FRequestRouter::NoTagReferenceModel(FSkeletonKey Target, ArtilleryTime Stamp)
 {
 	if (this)
 	{
@@ -119,7 +119,7 @@ FGrantWith F_INeedA::NoTagReferenceModel(FSkeletonKey Target, ArtilleryTime Stam
 }
 
 // Particle Systems
-FGrantWith F_INeedA::ParticleSystemActivatedOrDeactivated(FParticleID PID, bool ShouldBeActive, ArtilleryTime Stamp)
+FGrantWith FRequestRouter::ParticleSystemActivatedOrDeactivated(FParticleID PID, bool ShouldBeActive, ArtilleryTime Stamp)
 {
 	if (this)
 	{
@@ -134,7 +134,7 @@ FGrantWith F_INeedA::ParticleSystemActivatedOrDeactivated(FParticleID PID, bool 
 	return FGrantWith(Stamp).Set(FGrantWith::Nullable);
 }
 
-FGrantWith F_INeedA::ParticleSystemSpawnedAttached(FName ThingName, const FSkeletonKey& ComponentToAttachTo, const FSkeletonKey& Owner, ArtilleryTime Stamp, bool CreateSceneComponentOnKey)
+FGrantWith FRequestRouter::ParticleSystemSpawnedAttached(FName ThingName, const FSkeletonKey& ComponentToAttachTo, const FSkeletonKey& Owner, ArtilleryTime Stamp, bool CreateSceneComponentOnKey)
 {
 	if (this)
 	{
@@ -150,7 +150,7 @@ FGrantWith F_INeedA::ParticleSystemSpawnedAttached(FName ThingName, const FSkele
 	return FGrantWith(Stamp).Set(FGrantWith::Nullable);
 }
 
-FGrantWith F_INeedA::DeferredTickliteInstantiation(TicklitePrototype* constructed, ArtilleryTime Stamp, TicklitePhase Group)
+FGrantWith FRequestRouter::DeferredTickliteInstantiation(TicklitePrototype* constructed, ArtilleryTime Stamp, TicklitePhase Group)
 {
 	if (this)
 	{
@@ -161,7 +161,7 @@ FGrantWith F_INeedA::DeferredTickliteInstantiation(TicklitePrototype* constructe
 	return FGrantWith(Stamp).Set(FGrantWith::Nullable);
 }
 
-FGrantWith F_INeedA::ParticleSystemSpawnAtLocation(FName ThingName, const FVector& Location, const FRotator& Rotation, ArtilleryTime Stamp)
+FGrantWith FRequestRouter::ParticleSystemSpawnAtLocation(FName ThingName, const FVector& Location, const FRotator& Rotation, ArtilleryTime Stamp)
 {
 	if (this)
 	{
@@ -176,7 +176,7 @@ FGrantWith F_INeedA::ParticleSystemSpawnAtLocation(FName ThingName, const FVecto
 	return FGrantWith(Stamp).Set(FGrantWith::Nullable);
 }
 
-FGrantWith F_INeedA::Bullet(
+FGrantWith FRequestRouter::Bullet(
 	FName ThingName,
 	FVector Location,
 	double Scale,

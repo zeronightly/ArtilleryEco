@@ -4,6 +4,7 @@
 #include <timeapi.h>
 #include "LowLogTimeAndRate.h"
 #include "ArtilleryBPLibs.h"
+#include "ArtilleryGame.h"
 #include "BarrageDispatch.h"
 #include "SkeletonTypes.h"
 #include "TransformDispatch.h"
@@ -22,8 +23,9 @@ FArtilleryBusyWorker::~FArtilleryBusyWorker()
 
 bool FArtilleryBusyWorker::Init()
 {
-	//you cannot reorder these. it is a magic ordering put in place for a hack.
 	UE_LOG(LogTemp, Display, TEXT("Artillery:BusyWorker: Initializing Artillery thread"));
+	
+
 	// NB: running is monotonic now (true at construction). Do NOT set it true here -- see header.
 	return true;
 }
@@ -33,6 +35,7 @@ void FArtilleryBusyWorker::RunStandardFrameSim(bool& missedPrior, uint64_t& curr
                                                bool& RemoteInput)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(FArtilleryBusyWorker::RunStandardFrameSim)
+	Game->RunEventsRequiringVerifiedFrames(currentIndexCabling-1, true);//run the events from the previous verified frame.
 	
 	//this is an odd thing to do, I know, but we have some book-keeping we want to reserve for each code path.
 	//once this settles a little, I'll refactor, but I'm going to end up reworking this next weekend.
@@ -166,9 +169,9 @@ void FArtilleryBusyWorker::ProcessRequestRouterBusyWorkerThread()
 	
 	if (RequestRouter)
 	{
-		for (F_INeedA::FeedMap& WorkerFeedMap : RequestRouter->BusyWorkerAcc)
+		for (FRequestRouter::FeedMap& WorkerFeedMap : RequestRouter->BusyWorkerAcc)
 		{
-			TSharedPtr<F_INeedA::ThreadFeed> HoldOpen;
+			TSharedPtr<FRequestRouter::ThreadFeed> HoldOpen;
 			if (WorkerFeedMap.Queue && ((HoldOpen = WorkerFeedMap.Queue)) && WorkerFeedMap.That != std::thread::id()) //if there IS a thread.
 			{
 				FRequestThing Request;
@@ -227,7 +230,7 @@ void FArtilleryBusyWorker::ProcessRequestRouterBusyWorkerThread()
 void FArtilleryBusyWorker::RunFrameProcessingLoop(bool missedPrior, uint64_t currentIndexCabling, bool burstDropDetected, bool sent, uint32_t LastIncrementWindow, uint32_t lsbTime, const uint32_t SendHertzFactor, const uint32_t Period, const std::chrono::microseconds HalfStep, UArtilleryDispatch* ArtilleryDispatch)
 {
 	timeBeginPeriod(1);
-	
+	Game = MakeShared<FArtilleryGame>(); //create the game now that we're processing da frame
 	while (running)
 	{
 		if (!sent &&

@@ -121,7 +121,7 @@ public:
 	{
 		if(Dispatch)
 		{
-			TSharedPtr<F_INeedA> RouterHold = Dispatch->RequestRouter;
+			TSharedPtr<FRequestRouter> RouterHold = Dispatch->RequestRouter;
 			if(RouterHold)
 			{
 				RouterHold->NewUnboundGun(Requester, GunKey, Relationship, Dispatch->GetShadowNow());	
@@ -134,7 +134,7 @@ public:
 	{
 		if(Dispatch)
 		{
-			TSharedPtr<F_INeedA> RouterHold = Dispatch->RequestRouter;
+			TSharedPtr<FRequestRouter> RouterHold = Dispatch->RequestRouter;
 			if(RouterHold)
 			{
 				RouterHold->GunFired(GunKey, Dispatch->GetShadowNow());

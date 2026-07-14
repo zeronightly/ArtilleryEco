@@ -8,7 +8,7 @@
 #include "ABarragePlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "ArtilleryBPLibs.h"
-#include "ArtilleryInputManager.h"
+#include "InputRollback.h"
 #include "BarrageDispatch.h"
 #include "GameFramework/GameStateBase.h"
 #include "Containers/TripleBuffer.h"

@@ -4,11 +4,11 @@
 
 std::vector<FSkeletonKey> FParallelFixedSequencingQueue::UpdateAndConsume()
 {
-	static thread_local std::once_flag bound;
-	std::call_once(bound, [this]
+	if (!bound)
 	{
 		Consumer = std::this_thread::get_id();
-	});
+		bound = true;
+	}
 
 	//once owned, you MUST use the same thread for updates and consumes.
 	if (Consumer != std::this_thread::get_id())

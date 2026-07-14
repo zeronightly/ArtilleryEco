@@ -1,0 +1,3 @@
+While this does implement the patented CKS algorithm, it is an entirely novel implementation that innovates well beyond the scope of the original patent. As a result, it is algorithmically distinct and distinct in terms of implementation. Further, the CKS patent has lapsed. As a result, this is probably the defacto open implementation.
+
+CKS is a approximation of Lev or LevDam string distance that runs in strictly linear time. For short strings, it's about 3 times faster than the excellent rapidfuzz library. For long strings, it's over 300 times faster. It turns out that asymptotic order does matter. To the best of my knowledge, this is the fastest comparison algorithm for its purpose.

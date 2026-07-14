@@ -116,7 +116,7 @@ public:
 	//Templating here is used to both make reparenting easier if needed later and to simplify our dependency tree
 	UDispatch* DispatchOwner;
 	
-	TSharedPtr<F_INeedA> RequestRouter;
+	TSharedPtr<FRequestRouter> RequestRouter;
 	TOptional<FTransform> GetCopyOfShadowTransform(FSkeletonKey Target, ArtilleryTime Now)
 	{
 		return DispatchOwner->GetTransformShadowByObjectKey(Target,  Now);
@@ -244,7 +244,7 @@ public:
 		{
 			for (auto& WorkerFeedMap : RequestRouter->TLThreadAcc)
 			{
-				TSharedPtr<F_INeedA::TickliteRequestQ> HoldOpen;
+				TSharedPtr<FRequestRouter::TickliteRequestQ> HoldOpen;
 				if (WorkerFeedMap.Queue && ((HoldOpen = WorkerFeedMap.Queue)) && WorkerFeedMap.That != std::thread::id()) //if there IS a thread.
 				{
 					FTickliteRequest RouterQueue;

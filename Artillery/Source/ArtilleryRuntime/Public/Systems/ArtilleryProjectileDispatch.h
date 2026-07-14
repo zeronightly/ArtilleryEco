@@ -86,7 +86,6 @@ public:
 protected:
 	virtual ~UArtilleryProjectileDispatch() override;
 	UDataTable* ProjectileDefinitions;
-	TSharedPtr<TSortedMap<int, TArray<FSkeletonKey>>> ExpirationDeadliner;
 	FParallelFixedSequencingQueue Deadliner;
 	TSharedPtr<TMap<FSkeletonKey, TWeakObjectPtr<AInstancedMeshManager>>> ManagerKeyToMeshManagerMapping;
 	TSharedPtr<KeyToItemCuckooMap> ProjectileKeyToMeshManagerMapping;

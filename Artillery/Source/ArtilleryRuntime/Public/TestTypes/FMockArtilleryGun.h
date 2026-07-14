@@ -47,7 +47,7 @@ public:
 		const EventBufferInfo FireAction = EventBufferInfo::Default(),
 		const FGameplayEventData* TriggerEventData = nullptr,
 		bool RerunDueToReconcile = false,
-		int DallyFramesToOmit = 0) 
+		int DallyFramesToOmit = 0, bool VerifiedFrame = false) 
 		override
 	{
 	}

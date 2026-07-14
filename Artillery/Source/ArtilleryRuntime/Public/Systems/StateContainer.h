@@ -38,9 +38,12 @@ struct FArtilleryDataBuffer
             SequenceNumber = Other.SequenceNumber;
             bIsValid = Other.bIsValid;
             Inputs = Other.Inputs;
-            /* TODO(#3, DEFERRED per JMK 2026-06-25): copy the physics snapshot via Jolt's public
-		   StateRecorderImpl read/restore stream API, NOT operator= (modern Jolt deletes it). Stubbed
-		   to compile while #1/#2 land; PhysicsData is NOT yet copied here. We test both ways later. */
+            /* TODO (DEFERRED BY JMK 2026-06-25): 
+             * copy the physics snapshot via Jolt's public
+             * StateRecorderImpl read/restore stream API, NOT operator= (modern Jolt deletes it)
+             * PhysicsData is NOT yet copied here. We test both ways later. 
+             * 
+             */
             TimeStamp = Other.TimeStamp;
             bIsVerified = Other.bIsVerified;
         }

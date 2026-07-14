@@ -11,7 +11,7 @@
 #include <FTJumpTimer.h>
 #include "imgui.h"
 
-#include "CloverDispatch.h"
+#include "InventoryDispatch.h"
 // #ifdef WITH_EDITOR
 // #include "Editor.h"
 // #endif
@@ -29,7 +29,7 @@ bool UArtilleryDispatch::RegistrationImplementation()
 	GameplayTagContainerToDataMapping->Init();
 	UE_LOG(LogTemp, Warning, TEXT("ArtilleryDispatch:Subsystem: Online"));
 	AttributeSetToDataMapping = MakeShareable(new AttrCuckoo());
-	RequestRouter = MakeShareable(new F_INeedA());
+	RequestRouter = MakeShareable(new FRequestRouter());
 	TransformUpdateQueue = BarrageDispatch->GameTransformPump;
 	UCanonicalInputStreamECS* InputECS = GetWorld()->GetSubsystem<UCanonicalInputStreamECS>();
 	ArtilleryAsyncWorldSim.CablingControlStream = InputECS->getNewStreamConstruct(APlayer::CABLE);
@@ -70,8 +70,8 @@ bool UArtilleryDispatch::RegistrationImplementation()
 	WorldSim_Thread->Create(&ArtilleryAsyncWorldSim, TEXT("ARTILLERY_WORLDSIM_ONLINE."));
 	WorldSim_AI_Thread->Create(&ArtilleryAIWorker_LockstepToWorldSim, TEXT("ARTILLERY_AISIM_ONLINE."));
 	Ticklite_Thread->Create(&ArtilleryTicklitesWorker_LockstepToWorldSim,TEXT("ARTILLERY_TICKLITES_ONLINE."));
-	//clover is obligated to exist by now, because it depends on artillery.
-	Clover = GetWorld()->GetSubsystem<UCloverDispatch>();
+	//Inventory is obligated to exist by now, because it depends on artillery.
+	Inventory = GetWorld()->GetSubsystem<UInventoryDispatch>();
 	// In the editor we can listen to pausing and resuming to flip a bool on the artillery async world sim runner
 // #if WITH_EDITOR
 // 	FEditorDelegates::PausePIE.AddWeakLambda(this, [this](bool bIsSimulating) 
@@ -273,9 +273,9 @@ void UArtilleryDispatch::ProcessRequestRouterGameThread()
 {
 	if (__IsWorldRecordFullyReady && RequestRouter)
 	{
-		for (F_INeedA::GameFeedMap& FeedMap : RequestRouter->GameThreadAcc)
+		for (FRequestRouter::GameFeedMap& FeedMap : RequestRouter->GameThreadAcc)
 		{
-			TSharedPtr<F_INeedA::GameThreadRequestQ> HoldOpenQueue;
+			TSharedPtr<FRequestRouter::GameThreadRequestQ> HoldOpenQueue;
 			if (FeedMap.Queue && ((HoldOpenQueue = FeedMap.Queue)) && FeedMap.That != std::thread::id())
 			//if there IS a thread.
 			{
@@ -512,7 +512,7 @@ FGunKey UArtilleryDispatch::GetGun(const FString& GunDefinitionID, const ActorKe
 					FreshBakedGun->MyDispatch = UArtilleryDispatch::Get(GetWorld());
 					//TODO find an alternative that's truly deterministic and doesn't suck ten million bees. we need a ticker that's monotonic
 					// do we? or can we achieve outcome determinism without it? I think we can...
-					FGunKey Key = FGunKey(GunDefinitionID, F_INeedA::HashDownTo32(ProbableOwner + ++monotonkey));
+					FGunKey Key = FGunKey(GunDefinitionID, FRequestRouter::HashDownTo32(ProbableOwner + ++monotonkey));
 					//TODO: replace with probable owner?
 
 					FreshBakedGun->Initialize(Key, false);
@@ -767,10 +767,10 @@ void UArtilleryDispatch::AddTagToEntity(const FSkeletonKey Owner, const FGamepla
 
 void UArtilleryDispatch::AddTagToEntity(const FSkeletonKey Owner, const FNativeGameplayTag& TagToAdd) const
 {
-	if (Clover->SetsByTag.contains(TagToAdd))
+	if (Inventory->SetsByTag.contains(TagToAdd))
 	{
-		FCloverResultSet LiveSet;
-		Clover->SetsByTag.visit(TagToAdd, [&LiveSet](auto& a) { LiveSet = a.second; });
+		FInventoryResultSet LiveSet;
+		Inventory->SetsByTag.visit(TagToAdd, [&LiveSet](auto& a) { LiveSet = a.second; });
 		LiveSet.UnderlyingKeys.emplace(Owner);
 		LiveSet.Bloomlike.Add(Owner); //we have to add to both or it'll cause false negatives. 
 		LiveSet.Dirtied_AllowsFalseFalses = true;
@@ -787,10 +787,10 @@ void UArtilleryDispatch::RemoveTagFromEntity(const FSkeletonKey Owner, const FGa
 
 void UArtilleryDispatch::RemoveTagFromEntity(const FSkeletonKey Owner, const FNativeGameplayTag& TagToRemove) const
 {
-	if (Clover->SetsByTag.contains(TagToRemove))
+	if (Inventory->SetsByTag.contains(TagToRemove))
 	{
-		FCloverResultSet LiveSet;
-		Clover->SetsByTag.visit(TagToRemove, [&LiveSet](auto& a) { LiveSet = a.second; });
+		FInventoryResultSet LiveSet;
+		Inventory->SetsByTag.visit(TagToRemove, [&LiveSet](auto& a) { LiveSet = a.second; });
 		LiveSet.UnderlyingKeys.erase(Owner);
 		//LiveSet.Bloomlike does not support remove
 		//instead, it will be rebuilt eventually. this only causes false positives.

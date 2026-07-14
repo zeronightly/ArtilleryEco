@@ -19,7 +19,7 @@ protected:
 	FSharedEventRef RunAheadStateTrees;
 	
 public:
-	TSharedPtr<F_INeedA> RequestRouter;
+	TSharedPtr<FRequestRouter> RequestRouter;
 	FArtilleryAddEnemyToControllerSubsystem EnemyRegisterHook;
 	//Templating here is used to both make reparenting easier if needed later and to simplify our dependency tree
 	UDispatch* DispatchOwner;
@@ -28,9 +28,9 @@ public:
 	{
 		if (RequestRouter)
 		{
-			for (F_INeedA::FeedMap& WorkerFeedMap : RequestRouter->AIThreadAcc)
+			for (FRequestRouter::FeedMap& WorkerFeedMap : RequestRouter->AIThreadAcc)
 			{
-				TSharedPtr<F_INeedA::ThreadFeed> HoldOpen;
+				TSharedPtr<FRequestRouter::ThreadFeed> HoldOpen;
 				if (WorkerFeedMap.Queue && ((HoldOpen = WorkerFeedMap.Queue)) && WorkerFeedMap.That != std::thread::id()) //if there IS a thread.
 				{
 					FRequestThing RouterQueue;

@@ -71,7 +71,7 @@ public:
 	//And MOST ticklites WILL! Because you'll need to hit your executing thread. This is why we don't hide the ADispatch
 	//member of TL_ThreadedImpl! Please be aware of this! --J
 	UArtilleryDispatch* ArtilleryDispatch; 
-	TSharedPtr<F_INeedA> RequestRouter;
+	TSharedPtr<FRequestRouter> RequestRouter;
 	uint8 MyCadence;
 	
 	CadencedTicklite(uint32_t MyTicksToApply, const FGunKey& AutomateThisGun, uint32_t MyCadence)
@@ -92,7 +92,7 @@ public:
 
 	//this might need to be expanded a little so that it's actually useful. prolly gonna wanna add
 	//a lil function for telling if this is a Good Tick To Do Shit.
-	void SetRouterAndDispatch(UArtilleryDispatch* ArtyDispatch, TSharedPtr<F_INeedA> ARequestRouter)
+	void SetRouterAndDispatch(UArtilleryDispatch* ArtyDispatch, TSharedPtr<FRequestRouter> ARequestRouter)
 	{
 		ArtilleryDispatch=ArtyDispatch;
 		RequestRouter=ARequestRouter;
@@ -160,5 +160,5 @@ class FHarvesterWrapper
 {
 	FSkeletonKey MyKey;
 	Ticklites::Ticklite<HarvesterTicklite> Harvester;
-	F_INeedA* MyRequestRouter =			   nullptr; //This should almost never be the artillery dispatch's RequestRouter.
+	FRequestRouter* MyRequestRouter =			   nullptr; //This should almost never be the artillery dispatch's RequestRouter.
 };

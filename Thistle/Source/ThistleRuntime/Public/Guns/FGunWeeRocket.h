@@ -66,7 +66,7 @@ public:
 		const EventBufferInfo FireAction = EventBufferInfo::Default(),
 		const FGameplayEventData* TriggerEventData = nullptr,
 		bool RerunDueToReconcile = false,
-		int DallyFramesToOmit = 0) override
+		int DallyFramesToOmit = 0, bool VerifiedFrame = false) override
 	{
 		AttrMapPtr attribMap = MyDispatch->GetAttribMap(MyGunKey);
 		if (attribMap == nullptr)
