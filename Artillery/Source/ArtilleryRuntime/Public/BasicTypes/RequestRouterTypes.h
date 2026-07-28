@@ -117,6 +117,7 @@ USTRUCT()
 struct ARTILLERYRUNTIME_API FRequestGameThreadThing : public FRequestThing//Frick
 {
 	GENERATED_BODY()
+	bool WithPhysicsIfApplicable = true;
 	FRequestGameThreadThing()
 	{
 		

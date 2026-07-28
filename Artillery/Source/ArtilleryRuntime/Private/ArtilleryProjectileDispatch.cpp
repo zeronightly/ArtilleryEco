@@ -158,6 +158,7 @@ UArtilleryProjectileDispatch::~UArtilleryProjectileDispatch()
 {
 }
 
+//for us, a projectile is anything that comes out of a gun. and a gun is anything, really, at all. including triggers.
 FProjectileDefinitionRow* UArtilleryProjectileDispatch::GetProjectileDefinitionRow(const FName ProjectileDefinitionId)
 {
 	if (ProjectileDefinitions != nullptr)
@@ -199,6 +200,38 @@ FSkeletonKey UArtilleryProjectileDispatch::QueueProjectileInstance(const FName P
 	return FSkeletonKey();
 }
 
+FSkeletonKey UArtilleryProjectileDispatch::QueueKinematicProjectileInstance(const FName ProjectileDefinitionId,
+																   const FGunKey& Gun, const FVector3d& StartLocation,
+																   const FVector3d& VelocityIfAny, const float Scale,
+																   Layers::EJoltPhysicsLayer Layer,
+																   TArray<FGameplayTag>* TagArray,
+																   int LifetimeInTicks)
+{
+	if (IsReady){}
+	TWeakObjectPtr<AInstancedMeshManager>* MeshManagerPtr = ProjectileNameToMeshManagerMapping->Find(ProjectileDefinitionId);
+	if (MeshManagerPtr != nullptr && MeshManagerPtr->IsValid())
+	{
+		TWeakObjectPtr<AInstancedMeshManager> MeshManager = *MeshManagerPtr;
+		FSkeletonKey ProjectileKey = MeshManager->GenerateNewProjectileKey();
+		MyDispatch->RequestRouter->Bullet(ProjectileDefinitionId, StartLocation, Scale, VelocityIfAny, ProjectileKey,
+										  Gun, MyDispatch->GetShadowNow(), Layer, LifetimeInTicks, false);
+		if (TagArray != nullptr)
+		{
+			bool Found = false; // this is primarily a debug reporting mechanism.
+			FConservedTags TagContainer = MyDispatch->GetOrRegisterConservedTags(ProjectileKey,Found);
+			if (TagContainer.IsValid())
+			{
+				for (FGameplayTag& Tag : *TagArray)
+				{
+					MyDispatch->AddTagToEntity(ProjectileKey, Tag);
+				}
+			}
+		}
+		return ProjectileKey;
+	}
+	return FSkeletonKey();
+}
+
 FSkeletonKey UArtilleryProjectileDispatch::CreateProjectileInstance(FSkeletonKey ProjectileKey, FGunKey Gun,
                                                                     const FName ProjectileDefinitionId,
                                                                     const FTransform& WorldTransform,
@@ -208,7 +241,8 @@ FSkeletonKey UArtilleryProjectileDispatch::CreateProjectileInstance(FSkeletonKey
                                                                     const bool IsDynamic,
                                                                     Layers::EJoltPhysicsLayer Layer,
                                                                     const bool CanExpire,
-                                                                    const int LifeInTicks)
+                                                                    const int LifeInTicks,
+                                                                    const bool WithPhysic)
 {
 	if (IsReady)
 	{
@@ -242,6 +276,8 @@ FSkeletonKey UArtilleryProjectileDispatch::CreateProjectileInstance(FSkeletonKey
 	}
 	return FSkeletonKey();
 }
+
+
 
 bool UArtilleryProjectileDispatch::IsArtilleryProjectile(const FSkeletonKey MaybeProjectile)
 {

@@ -175,9 +175,9 @@ void FArtilleryGame::RunEventsRequiringVerifiedFrames(uint32 Sequence, bool bIsV
 		auto EventKeys = VerifiedEventDeadliner.UpdateAndConsume();
 		auto TriggeredKeys = VerifiedTriggerDeadliner.UpdateAndConsume();
 		//OkLetsGo
-		ItemsAndEventsManager->CreateOnTickVerification(KeysToDeploy);
-		ItemsAndEventsManager->RunOnTickVerification(EventKeys);
-		ItemsAndEventsManager->TriggerOnTickVerification(TriggeredKeys);
+		ItemsAndEventsManager->CreateOnVerTick(KeysToDeploy);
+		ItemsAndEventsManager->OnVerTick(EventKeys);
+		ItemsAndEventsManager->TriggerOnVerTick(TriggeredKeys);
 		ItemsAndEventsManager->RunDelayedTriggers();
 	}
 	

@@ -362,7 +362,7 @@ struct ARTILLERYRUNTIME_API FEventedInventoryData : public FInventoryData
 		FTriggerInstance(const FSKItemInstance& MyKey, const FGunKey& MyGunIfAny, const TOptional<FGameplayTag>& AddToInventoryEntitlements, const TOptional<FGameplayTag>& TagNeededIfAny,
 			const FSkeletonKey& KeyNeededIfAny, const FBoneKey& MyStaticMeshIfAny, const FBarrageKey& MyTransformLinkIfAny, float Radius, int EntitiesInRadiusToPrime, int TimesTriggeredToSetOff,
 			int TimesTriggered, int LastTickPrimed, int MaxAllowedDelayBetweenPrimedFrames, int TimesAllowedToTrigger, WhatMattersToThis CategoryChecked, const FVector& MyStartingLocation)
-			: MyKey(MyKey),
+			: MyGun(MyGunIfAny), MyKey(MyKey),
 			  AddToInventoryEntitlements(AddToInventoryEntitlements),
 			  TagNeededIfAny(TagNeededIfAny),
 			  KeyNeededIfAny(KeyNeededIfAny),
@@ -380,7 +380,10 @@ struct ARTILLERYRUNTIME_API FEventedInventoryData : public FInventoryData
 		{
 		}
 
-		FTriggerInstance() = default;
+		FTriggerInstance() : CategoryChecked()
+		{
+		};
+		FGunKey MyGun;
 		FSKItemInstance MyKey; // you can extract the archetype from this!
 		//the following two or three fields should probably be excised by creating guns that actually follow the logic.
 		TOptional<FGameplayTag> AddToInventoryEntitlements; //If set, all entities in the radius that matter to this trigger will get this tag added to them as an entitlement when it goes off
@@ -390,6 +393,7 @@ struct ARTILLERYRUNTIME_API FEventedInventoryData : public FInventoryData
 		//this is literally smaller than an optional. *sigh*
 		//if set, this trigger will act like an aura around that transform's center. it does not perform a minkowsky sum. Just measures from the center. Crudely.
 		FBarrageKey MyTransformLinkIfAny;
+		FBox2D BoxIfInQuadTrie;
 		float radius = 100;		//sane initial value
 		int EntitiesInRadiusToPrime = 1;
 		int TimesTriggeredToSetOff = 1;
@@ -406,7 +410,9 @@ struct ARTILLERYRUNTIME_API FEventedInventoryData : public FInventoryData
 		}
 	};
 
-	USTRUCT()
+
+
+USTRUCT()
 	struct FSimpleTriggerGun : public FArtilleryGun
 	{
 		

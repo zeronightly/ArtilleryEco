@@ -110,15 +110,27 @@ public:
 		return CreateNewInstance(WorldTransform, MuzzleVelocity, static_cast<uint16_t>(Layer), Scale, FSkeletonKey(), IsSensor, IsDynamic);
 	}
 	
-	FSkeletonKey CreateNewInstance(const FTransform& WorldTransform, const FVector3d& MuzzleVelocity, const uint16_t Layer, float Scale = 1.0f, FSkeletonKey ExistingKey = FSkeletonKey::Invalid(), bool IsSensor = false, bool IsDynamic = false)
+	//TODO: this looks very wrong now.
+	UFUNCTION(BlueprintCallable, Category = Instance)
+	FSkeletonKey CreateNewKinematicInstance(const FTransform& WorldTransform, const FVector& MuzzleVelocity, const EPhysicsLayer Layer, float Scale = 1.0f, bool IsSensor = false, bool IsDynamic = false)
+	{
+		return CreateNewInstance(WorldTransform, MuzzleVelocity, static_cast<uint16_t>(Layer), Scale, FSkeletonKey(), IsSensor, IsDynamic, false);
+	}
+	
+	FSkeletonKey CreateNewInstance(const FTransform& WorldTransform, const FVector3d& MuzzleVelocity, const uint16_t Layer, float Scale = 1.0f, FSkeletonKey ExistingKey = FSkeletonKey::Invalid(), bool IsSensor = false, bool IsDynamic = false, bool Physics = true)
 	{
 		FSkeletonKey NewInstanceKey = (ExistingKey == FSkeletonKey::Invalid()) ? GenerateNewProjectileKey() : ExistingKey;
 		FTransform ScaledTransform(MuzzleVelocity.GetSafeNormal().Rotation(),WorldTransform.GetLocation(), FVector3d(Scale, Scale, Scale));
 		FPrimitiveInstanceId NewInstanceId = SwarmKineManager->AddInstanceById(ScaledTransform, true);
 		SwarmKineManager->AddToMapDbg(NewInstanceId, NewInstanceKey);
-
-		CreateNewInstanceWithKeyInternal(NewInstanceKey, WorldTransform, MuzzleVelocity, Layer, Scale);
-		
+		if (Physics)
+		{
+			CreateNewInstanceWithKeyInternal(NewInstanceKey, WorldTransform, MuzzleVelocity, Layer, Scale);
+		}
+		else
+		{
+			CreateNewKinematicInstanceWithKeyInternal(NewInstanceKey, WorldTransform, MuzzleVelocity, Layer, Scale);
+		}
 		return NewInstanceKey;
 	}
 
@@ -154,6 +166,15 @@ private:
 		FBarragePrimitive::ApplyRotation(MuzzleVelocity.ToOrientationQuat(), MyBarrageBody);
 		FBarragePrimitive::SetGravityFactor(0.f, MyBarrageBody);
 		
+		//MyDispatch->REGISTER_PROJECTILE_FINAL_TICK_RESOLVER(120, ProjectileKey);
+	}
+	
+	void CreateNewKinematicInstanceWithKeyInternal(FSkeletonKey ProjectileKey, const FTransform& WorldTransform, const FVector3d& MuzzleVelocity, const uint16_t Layer, float Scale) const
+	{
+		// TODO: can't use the BarrageColliderBase set of types, so in-lining the barrage setup code. Is this what we want long-term?
+		UBarrageDispatch* Physics = GetWorld()->GetSubsystem<UBarrageDispatch>();
+		TObjectPtr<UStaticMesh> AnyMesh = SwarmKineManager->GetStaticMesh();
+		TransformDispatch->RegisterObjectToShadowTransform(ProjectileKey, SwarmKineManager);
 		//MyDispatch->REGISTER_PROJECTILE_FINAL_TICK_RESOLVER(120, ProjectileKey);
 	}
 	

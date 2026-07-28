@@ -99,22 +99,52 @@ FSKPlugKey UInventoryDispatch::BindAbilityToSocket(FGunKey Instance, FSKSocketKe
 	return {};
 }
 
-FSKItemKey UInventoryDispatch::CreateOnTickVerification(std::vector<FSkeletonKey>& ToCreate)
+FSKItemKey UInventoryDispatch::CreateOnVerTick(std::vector<FSkeletonKey>& ToCreate)
 {
 	return {};
 }
 
-FSKItemKey UInventoryDispatch::CreateOnTickVerification(FTriggerInstance& ToCreate)
+void UInventoryDispatch::ItemInstance(FTriggerInstance& ToCreate)
+{
+	ToCreate.MyKey = FSKItemInstance(MontonicKey++, ToCreate.MyKey.GetSK().Meta(), SFIX_SubtypeSelector::SFIX_ST_ONE);
+}
+
+FSKItemKey UInventoryDispatch::CreateOnVerTick(FTriggerInstance& ToCreate, bool HasBounds)
+{
+	//generate key
+	ItemInstance(ToCreate);
+	//bluntly, we don't support triggers without bounds and a location yet. I'm sure we will for quests.
+	ensure(HasBounds);
+	
+	
+	auto kR = ToCreate.radius;
+	FVector2D center = {ToCreate.MyStartingLocation.X, ToCreate.MyStartingLocation.Y};
+	FVector2D delt = {kR,kR};
+	
+	//we'll need the box to remove it from the quadtree for SOME STUPID REASON.
+	//we should switch to a faster quadtree. jolt trigger-like colliders (sensors)
+	//are unfortunately a little slow for good reasons,
+	//because they cover a broader use case.
+	ToCreate.BoxIfInQuadTrie = FBox2D(( center- delt), center + delt);
+	ItemCollision->Insert(ToCreate.MyKey, ToCreate.BoxIfInQuadTrie );
+	//~~otherwise add trigger to constraint machine.~~
+	//actually, if you want 'em, you implement that. --J
+	auto GunKey = ArtilleryDispatch->GetGun(ToCreate.MyGun.GunDefinitionID, ToCreate.MyKey.GetSK());
+	TriggerGuns_BusyWorkerOnly.Add(ToCreate.MyKey, GunKey);
+	return ToCreate.MyKey;
+}
+
+FSKItemKey UInventoryDispatch::CreateWithISMOnVerTick(FTriggerInstance& ToCreate)
 {
 	return  {};
 }
 
-FSKItemKey UInventoryDispatch::RunOnTickVerification(std::vector<FSkeletonKey>& ToRun)
+FSKItemKey UInventoryDispatch::OnVerTick(std::vector<FSkeletonKey>& ToRun)
 {
 	return {};
 }
 
-FSKItemKey UInventoryDispatch::TriggerOnTickVerification(std::vector<FSkeletonKey>& ToTrigger)
+FSKItemKey UInventoryDispatch::TriggerOnVerTick(std::vector<FSkeletonKey>& ToTrigger)
 {
 	return {};
 }

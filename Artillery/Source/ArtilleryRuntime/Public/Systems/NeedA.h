@@ -155,7 +155,7 @@ public:
 		ArtilleryTime Stamp,
 		Layers::EJoltPhysicsLayer Layer = Layers::PROJECTILE,
 		int LifeInTicks = -1,
-		bool HasExpiration = true);
+		bool HasPhysics = true);
 };
 
 

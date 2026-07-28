@@ -95,6 +95,7 @@ public:
 		Conditions	  = 0x51c51c
 	};
 
+	std::atomic<uint64_t> MontonicKey;
 	
 	//note that ordered set is the order that things are added in, not a sorted order.
 	//this is MUCH more useful for us, because it's very unlikely that each quest step will be conveniently sequential.
@@ -118,7 +119,7 @@ public:
 			{
 				QuestStepTriggerToFinish.CloseTrigger();
 				++index;
-				MyDispatch->CreateOnTickVerification(Steps[index]);
+				MyDispatch->CreateOnVerTick(Steps[index]);
 				return true;
 			}
 			return false;
@@ -235,11 +236,17 @@ public:
 	FInventoryResultSet GetAllEntitiesWithinDistanceOfPoint(FVector2d& Point, double Radius);
 	//Man I dunno about this. I'm gonna implement this if we need it.
 	FSKPlugKey BindAbilityToSocket(FGunKey Instance, FSKSocketKey BindTo);
-	FSKItemKey CreateOnTickVerification(std::vector<FSkeletonKey>& ToCreate);
 	
-	FSKItemKey CreateOnTickVerification(FTriggerInstance& ToCreate);
-	FSKItemKey RunOnTickVerification(std::vector<FSkeletonKey>& ToRun);
-	FSKItemKey TriggerOnTickVerification(std::vector<FSkeletonKey>& ToTrigger);
+	FSKItemKey CreateOnVerTick(std::vector<FSkeletonKey>& ToCreate);
+	void ItemInstance(FTriggerInstance& ToCreate);
+
+	FSKItemKey CreateOnVerTick(FTriggerInstance& ToCreate, bool HasBounds=true);
+	//don't use this cross thread. it's unsafe in many ways!
+	TMap<FSKItemInstance, FGunKey> TriggerGuns_BusyWorkerOnly;
+
+	FSKItemKey CreateWithISMOnVerTick(FTriggerInstance& ToCreate);
+	FSKItemKey OnVerTick(std::vector<FSkeletonKey>& ToRun);
+	FSKItemKey TriggerOnVerTick(std::vector<FSkeletonKey>& ToTrigger);
 	//This is provided without warranty for people who don't wanna use guns.
 	FSKPlugKey BindArbitraryKeyToSocket(FSkeletonKey NoWarranty, FSKSocketKey BindingTo); 
 	
@@ -265,15 +272,16 @@ protected:
 	//triggers around players and similar here and there.
 	seq::concurrent_map<FSkeletonKey, FTriggerInstance> Triggers;
 	TSharedPtr<TQuadTree<TPair<FBarrageKey, FVector2d>>> QuadTreeForDistance = {};
+	TSharedPtr<TQuadTree<FSKItemInstance>> ItemCollision = {};
 	bool QuadTreeMaintenance = true;
 	bool PhysicsStateMaintence = true;
 	
 	//TODO: unstub me.
 	//used by the request router for deployables and triggers.
-	FSKItemKey PlaceItemInstanceInWorldOnceCanon(FSKItemKey Item, FVector Location);
 	UBarrageDispatch* ContingentPhysicsLinkage = nullptr;
 	JPH::BodyIDVector MyTrackingSet = {};
 	TArray<JPH::BodyBoxFlatCopy> MyShadowCopies = {};
+	FSKItemKey PlaceItemInstanceInWorldOnceCanon(FSKItemKey Item, FVector Location);
 public:
 	virtual void ArtilleryTick(uint64_t TicksSoFar) override;
 	

@@ -11,13 +11,16 @@ public class LocomoCore : ModuleRules
 	public LocomoCore(ReadOnlyTargetRules Target) : base(Target)
 	{
 		//PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-
+		// .Build.cs — overlay MUST precede UE's Boost so our 3 headers shadow it
+		PublicIncludePaths.Add(Path.Combine(PluginDirectory, "Source/Private/SpatialIndexDeps"));
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "Boost");  // adds .../boost-1.85.0/include as a root
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
 				Path.Combine(PluginDirectory,"Source/LocomoCore"),
 				Path.Combine(PluginDirectory,"Source/LocomoCore/Public"),
-				Path.Combine(PluginDirectory,"Source/LocomoCore/Public/Distances") //we only add this for back compat.
+				Path.Combine(PluginDirectory,"Source/LocomoCore/Public/Distances"), //we only add this for back compat.
+				
 
 			}
 		);
@@ -25,6 +28,7 @@ public class LocomoCore : ModuleRules
 		PrivateIncludePaths.AddRange(
 			new string[] {
 				Path.Combine(PluginDirectory,"Source/LocomoCore/Private"),
+				Path.Combine(PluginDirectory, "Source/Private/SpatialIndexDeps")
 			}
 			);
 
@@ -38,7 +42,7 @@ public class LocomoCore : ModuleRules
 				"Slate",
 				"ApplicationCore", 
 				"SkeletonKey", 
-				"GameplayTags", "Eigen"
+				"GameplayTags", "Eigen", "Boost"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -51,7 +55,7 @@ public class LocomoCore : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Slate",
-				"ApplicationCore", "SkeletonKey", "GameplayTags"
+				"ApplicationCore", "SkeletonKey", "GameplayTags", "Boost"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

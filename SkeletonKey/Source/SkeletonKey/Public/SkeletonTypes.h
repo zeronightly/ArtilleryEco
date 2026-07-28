@@ -50,15 +50,20 @@ public:
 		return oss.str();
 	}
 
+	FORCEINLINE uint32 Meta() const
+	{
+		return  ((Obj  >> 32) & SFIX_MaskForMetaBits);
+	}
 	
 	FString PrettyPrint() const
 	{
 		std::ostringstream oss;
 		oss << "Type " << std::hex << (GET_SK_TYPE(Obj ) >> 60)
-		<< " Meta " << std::hex << ((Obj & SFIX_MaskForMetaBits) >> 32)
+		<< " Meta " << std::hex << ((Obj  >> 32) & SFIX_MaskForMetaBits)
 		<< " Hash " << std::hex << static_cast<uint32>(Obj);
 		return FString(oss.str().c_str());
 	}
+	
 	
 	static bool IsValid(const FSkeletonKey& Other)
 	{

@@ -23,7 +23,8 @@ THIRD_PARTY_INCLUDES_END
 class UArtilleryDispatch;
 
 /**
- * This is the Artillery subsystem that manages the lifecycle of projectiles using only SkeletonKeys rather than UE5
+ * This is the Artillery subsystem, increasingly ill-named, that manages the lifecycle of projectiles or projectile LIKEs
+ using only SkeletonKeys rather than UE5
  * actors. This is done by instancing projectiles through AInstancedMeshManager actors rather than creating an actor
  * per projectile which greatly reduces computational load as all projectiles with the same model can be managed by
  * Artillery + TickLites rather than through the heavy and expensive UE5 Actor system.
@@ -103,8 +104,10 @@ public:
 	FProjectileDefinitionRow* GetProjectileDefinitionRow(const FName ProjectileDefinitionId);
 	// TODO - Add handling for IsSensor and IsDynamic. We do not currently have anything that uses these flags, so they are not handled by the request router
 	FSkeletonKey QueueProjectileInstance(const FName ProjectileDefinitionId, const FGunKey& Gun, const FVector3d& StartLocation, const FVector3d& MuzzleVelocity, const float Scale = 1.0f, Layers::EJoltPhysicsLayer Layer = Layers::PROJECTILE, TArray<FGameplayTag>* TagArray = nullptr, int LifetimeInTicks = -1);
+	FSkeletonKey QueueKinematicProjectileInstance(const FName ProjectileDefinitionId, const FGunKey& Gun, const FVector3d& StartLocation, const FVector3d& VelocityIfAny = {0,0,0}, const float Scale = 1.0f, Layers::EJoltPhysicsLayer Layer = Layers::PROJECTILE, TArray<FGameplayTag>* TagArray = nullptr, int LifetimeInTicks = -1);
+	
 	//bool KillInOneFrame(FSkeletonKey ProjectileKey);
-	FSkeletonKey CreateProjectileInstance(FSkeletonKey ProjectileKey,  FGunKey Gun, const FName ProjectileDefinitionId, const FTransform& WorldTransform, const FVector3d& MuzzleVelocity, const float Scale = 1.0f, const bool IsSensor = true, const bool IsDynamic = false, Layers::EJoltPhysicsLayer Layer = Layers::PROJECTILE, const bool CanExpire = true, const int LifeInTicks = -1);
+	FSkeletonKey CreateProjectileInstance(FSkeletonKey ProjectileKey,  FGunKey Gun, const FName ProjectileDefinitionId, const FTransform& WorldTransform, const FVector3d& MuzzleVelocity, const float Scale = 1.0f, const bool IsSensor = true, const bool IsDynamic = false, Layers::EJoltPhysicsLayer Layer = Layers::PROJECTILE, const bool CanExpire = true, const int LifeInTicks = -1, const bool WithPhysics = true);
 	bool IsArtilleryProjectile(const FSkeletonKey MaybeProjectile);
 	void DeleteProjectile(const FSkeletonKey Target);
 	TWeakObjectPtr<AInstancedMeshManager> GetProjectileMeshManagerByManagerKey(const FSkeletonKey ManagerKey);

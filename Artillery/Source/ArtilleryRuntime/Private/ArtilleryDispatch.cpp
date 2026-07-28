@@ -440,7 +440,8 @@ void UArtilleryDispatch::ProcessRequestRouterGameThread()
 								true,
 								Request.Layer,
 								Request.CanExpire,
-								Request.TicksDuration);
+								Request.TicksDuration,
+								Request.WithPhysicsIfApplicable);
 							AddTagToEntity(Request.SourceOrSelf, InitState_GameplayReady);
 						}
 						break;
@@ -493,7 +494,7 @@ TStatId UArtilleryDispatch::GetStatId() const
 }
 
 // TODO - Rename to ConjureGun, not renaming right now
-FGunKey UArtilleryDispatch::GetGun(const FString& GunDefinitionID, const ActorKey& ProbableOwner) const
+FGunKey UArtilleryDispatch::GetGun(const FString& GunDefinitionID, const FSkeletonKey& ProbableOwner) const
 {
 	const UWorld* World = GetWorld();
 	if (World != nullptr)

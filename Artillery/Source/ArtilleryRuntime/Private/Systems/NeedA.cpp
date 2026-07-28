@@ -186,7 +186,7 @@ FGrantWith FRequestRouter::Bullet(
 	ArtilleryTime Stamp,
 	Layers::EJoltPhysicsLayer Layer,
 	int LifeInTicks,
-	bool HasExpiration)
+	bool HasPhysics)
 {
 	if (this)
 	{
@@ -201,6 +201,7 @@ FGrantWith FRequestRouter::Bullet(
 		MyRequest.Layer = Layer;
 		MyRequest.CanExpire = true;
 		MyRequest.TicksDuration = LifeInTicks;
+		MyRequest.WithPhysicsIfApplicable = HasPhysics;
 		GameThreadAcc[MyARTILLERYIndex].Queue->Enqueue(MyRequest);
 		return FGrantWith(Stamp).Set(FGrantWith::Eventual | FGrantWith::Within1Tick);
 	}

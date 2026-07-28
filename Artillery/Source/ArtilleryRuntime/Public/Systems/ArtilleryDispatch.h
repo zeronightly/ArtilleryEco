@@ -278,7 +278,7 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override;
 	//you don't wanna look at this.
-	FGunKey GetGun(const FString& GunDefinitionID, const ActorKey& ProbableOwner) const;
+	FGunKey GetGun(const FString& GunDefinitionID, const FSkeletonKey& ProbableOwner) const;
 	
 	//fully specifying the type is necessary to prevent spurious warnings in some cases.
 	TSharedPtr<TCircularQueue<std::pair<FGunKey, ArtilleryTime>>> ActionsToOrder;

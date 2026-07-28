@@ -1,0 +1,3 @@
+This is a port and containment of a minimal set of boost required to support boost geom and thus the boost R* tree. The boost R* tree has a virtually unique bulk build algorithm that's about 20 times faster in the _worst case_ than comparable incremental insertions in other rtrees. It's also extremely well tested. We've done some tuning and swapped a few bits for more deterministic components from jolt and pdqselect. This is all wrapped in a facade so that it won't get recompiled. 
+
+This will be expanded with the addition of more facades as we need it and also a novel tesseral index I've designed that's..... very fast.

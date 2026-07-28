@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include <bit>
+
 #include "LCM_Config.h"
 #include "CoreMinimal.h"
 #include "Eigen/StdVector"
@@ -122,35 +124,11 @@ public:
 		return ((approx + 512) >> 10);
 	}
 
-	//these can be replaced with the stl popcount soon.
-	inline static uint32 CountBits(uint32 inValue)
-	{
-#if defined(LCM_COMPILER_CLANG) || defined(LCM_COMPILER_GCC)
-		return __builtin_popcount(inValue);
-#elif defined(LCM_USE_SSE4_2)
-		return _mm_popcnt_u32(inValue);
-#else
-		inValue = inValue - ((inValue >> 1) & 0x55555555);
-		inValue = (inValue & 0x33333333) + ((inValue >> 2) & 0x33333333);
-		inValue = (inValue + (inValue >> 4)) & 0x0F0F0F0F;
-		return (inValue * 0x01010101) >> 24;
-#endif
-	}
 
-	inline static uint64 CountBits(uint64 inValue)
-	{
-#if defined(LCM_COMPILER_CLANG) || defined(LCM_COMPILER_GCC)
-	    return __builtin_popcount(inValue);
-#elif defined(LCM_USE_SSE4_2)
-		return _mm_popcnt_u64(inValue);
-#else
-	    inValue = inValue - ((inValue >> 1) & 0x55555555);
-	    inValue = (inValue & 0x33333333) + ((inValue >> 2) & 0x33333333);
-	    inValue = (inValue + (inValue >> 4)) & 0x0F0F0F0F;
-	    return (inValue * 0x01010101) >> 24;
-#endif
-	}
 
+	//shims
+	inline static uint32_t CountBits(uint64_t v) { return (uint32_t)std::popcount(v); }
+	inline static uint64_t CountBits64(uint64_t v) { return (uint64_t)std::popcount(v); }
 
 	//this is a set of pretty normal distance functions
 	//from flann. most of these are already available, but that said
