@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include "LCM_Config.h"
 
 namespace booster {
 

@@ -95,7 +95,8 @@ public:
 		Conditions	  = 0x51c51c
 	};
 
-	std::atomic<uint64_t> MontonicKey;
+	std::atomic<uint64_t> MonotonicKey = 1;//starts at 1, in case we want item archetypes to simply be hash-blanked item keys, which frankly is sounding good.
+	
 	
 	//note that ordered set is the order that things are added in, not a sorted order.
 	//this is MUCH more useful for us, because it's very unlikely that each quest step will be conveniently sequential.
@@ -195,6 +196,7 @@ public:
 	
 	
 	UArtilleryDispatch* ArtilleryDispatch;
+	UArtilleryProjectileDispatch* ProjectileDispatch;
 	bool GetSetKeysByOwner(FSkeletonKey Owner, OwnedSets& OutParamOptionallyLiveMemory);
 	//Result sets are not concurrent datatypes. If you must use them across threads, copy them.
 	//result sets do not have their own keys, they are a transient primitive unique to Inventory.
@@ -238,8 +240,6 @@ public:
 	FSKPlugKey BindAbilityToSocket(FGunKey Instance, FSKSocketKey BindTo);
 	
 	FSKItemKey CreateOnVerTick(std::vector<FSkeletonKey>& ToCreate);
-	void ItemInstance(FTriggerInstance& ToCreate);
-
 	FSKItemKey CreateOnVerTick(FTriggerInstance& ToCreate, bool HasBounds=true);
 	//don't use this cross thread. it's unsafe in many ways!
 	TMap<FSKItemInstance, FGunKey> TriggerGuns_BusyWorkerOnly;
@@ -290,4 +290,9 @@ public:
 private:
 	constexpr static int OrdinateSeqKey = ORDIN::E_D_C::InventorySystem;
 	virtual bool RegistrationImplementation() override; 
+	void ItemInstance(FTriggerInstance& ToCreate)
+	{
+		ToCreate.MyKey = FSKItemInstance(MonotonicKey++, ToCreate.MyKey.GetSK().Meta(), SFIX_SubtypeSelector::SFIX_ST_ONE);
+	}
+
 };

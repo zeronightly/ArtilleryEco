@@ -16,6 +16,7 @@ void UInventoryDispatch::Initialize(FSubsystemCollectionBase& Collection)
 	
 	ContingentPhysicsLinkage = Collection.InitializeDependency<UBarrageDispatch>();
 	ArtilleryDispatch = Collection.InitializeDependency<UArtilleryDispatch>();
+	ProjectileDispatch = Collection.InitializeDependency<UArtilleryProjectileDispatch>();
 	MyShadowCopies.Reserve(1024);
 	MyTrackingSet.reserve(1024);
 	SET_INITIALIZATION_ORDER_BY_ORDINATEKEY_AND_WORLD
@@ -104,10 +105,6 @@ FSKItemKey UInventoryDispatch::CreateOnVerTick(std::vector<FSkeletonKey>& ToCrea
 	return {};
 }
 
-void UInventoryDispatch::ItemInstance(FTriggerInstance& ToCreate)
-{
-	ToCreate.MyKey = FSKItemInstance(MontonicKey++, ToCreate.MyKey.GetSK().Meta(), SFIX_SubtypeSelector::SFIX_ST_ONE);
-}
 
 FSKItemKey UInventoryDispatch::CreateOnVerTick(FTriggerInstance& ToCreate, bool HasBounds)
 {
@@ -136,7 +133,20 @@ FSKItemKey UInventoryDispatch::CreateOnVerTick(FTriggerInstance& ToCreate, bool 
 
 FSKItemKey UInventoryDispatch::CreateWithISMOnVerTick(FTriggerInstance& ToCreate)
 {
-	return  {};
+	CreateOnVerTick(ToCreate, true);
+	
+	
+	
+	ToCreate.MyStaticMeshIfAny = ProjectileDispatch->QueueKinematicProjectileInstance(
+		"", 
+		ToCreate.MyGun, 
+		ToCreate.MyStartingLocation, 
+		{0,0,0},
+		1,
+		Layers::NUM_LAYERS,
+		nullptr,
+		-1);
+	return ToCreate.MyKey;
 }
 
 FSKItemKey UInventoryDispatch::OnVerTick(std::vector<FSkeletonKey>& ToRun)

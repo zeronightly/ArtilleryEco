@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "FArtilleryGun.h"
 #include "SkeletonTypes.h"
+#include "Skeletonize.h"
 #include "Templates/TypeHash.h"
 THIRD_PARTY_INCLUDES_START
 #include "seq/ordered_map.hpp"
@@ -23,10 +24,25 @@ struct SEQGetSKKey
 	}
 };
 using FCRKeyStruct = SeqSet64;
-struct ARTILLERYRUNTIME_API FInventorySetKey
+struct ARTILLERYRUNTIME_API Prehashed
+{
+	virtual ~Prehashed() = default;
+
+	uint64_t MyKey = 0;
+	
+	friend uint32 GetTypeHash(const Prehashed& Arg)
+	{
+		return MashFunctions::FastHash6432(Arg.MyKey);
+	}
+	
+	virtual bool operator==(const Prehashed& rhs) const {
+		return (MyKey == rhs.MyKey);
+	}
+};
+
+struct ARTILLERYRUNTIME_API FInventorySetKey : public  Prehashed
 {
 	constexpr static auto MasterKeyType = SFIX_SetOf;
-	uint64_t MyKey = 0;
 	FInventorySetKey(uint32 GetsSlicedTo28Bits, uint64_t ParentKey, SFIX_SubtypeSelector MySubtype)
 	{
 		MyKey = SFIX_DestructiveApplySubtype(
@@ -58,10 +74,9 @@ struct ARTILLERYRUNTIME_API FInventorySetKey
 
 //item instances use the subtype nibble for a set of four bitflags.
 //we only use two, leaving two to any other users.
-struct ARTILLERYRUNTIME_API FSKItemInstance
+struct ARTILLERYRUNTIME_API FSKItemInstance : public Prehashed
 {
 	constexpr static auto MasterKeyType = SFIX_ItemInstance;
-	uint64_t MyKey = 0;
 	
     bool IsStackable()
     {
@@ -87,9 +102,24 @@ struct ARTILLERYRUNTIME_API FSKItemInstance
 	{
 		return FSkeletonKey(MyKey);
 	}
+
+
+	inline bool operator==(const FSKItemInstance& rhs) const {
+		return (MyKey == rhs.MyKey);
+	}
+	
+	inline bool operator==(const Prehashed& rhs) const override {
+		return (MyKey == rhs.MyKey);
+	}
+	
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (Item Instance)", CompactNodeTitle = "==", Keywords = "== equal"))
+	static bool EqualEqual_PHDPHD(const FSKItemInstance& A, const FSKItemInstance& B)
+	{
+		return A.MyKey == B.MyKey;
+	}
 };
 
-struct ARTILLERYRUNTIME_API FSKItemArchetypeKey
+struct ARTILLERYRUNTIME_API FSKItemArchetypeKey : public  Prehashed
 {
 	constexpr static auto MasterKeyType = SFIX_ItemArchetype;
 	uint64_t MyKey = 0;
@@ -110,10 +140,9 @@ struct ARTILLERYRUNTIME_API FSKItemArchetypeKey
 };
 
 
-struct ARTILLERYRUNTIME_API FSKPlugKey
+struct ARTILLERYRUNTIME_API FSKPlugKey : public  Prehashed
 {
 	constexpr static auto MasterKeyType = SFIX_Socket;
-	uint64_t MyKey = 0;
 	FSKPlugKey(FSKItemInstance GetsSlicedTo28Bits, SFIX_SubtypeSelector MySubtype, FInventorySetKey ParentSet)
 	{
 		MyKey = SFIX_DestructiveApplySubtype(
@@ -130,10 +159,9 @@ struct ARTILLERYRUNTIME_API FSKPlugKey
 	}
 };
 
-struct ARTILLERYRUNTIME_API FSKSocketKey
+struct ARTILLERYRUNTIME_API FSKSocketKey : public  Prehashed
 {
 	constexpr static auto MasterKeyType = SFIX_Socket;
-	uint64_t MyKey = 0;
 	FSKSocketKey(uint32 GetsSlicedTo28Bits, FInventorySetKey ParentSet)
 	{
 		MyKey = SFIX_DestructiveApplySubtype(
@@ -389,7 +417,7 @@ struct ARTILLERYRUNTIME_API FEventedInventoryData : public FInventoryData
 		TOptional<FGameplayTag> AddToInventoryEntitlements; //If set, all entities in the radius that matter to this trigger will get this tag added to them as an entitlement when it goes off
 		TOptional<FGameplayTag> TagNeededIfAny;
 		FSkeletonKey KeyNeededIfAny;
-		FBoneKey MyStaticMeshIfAny;
+		FSkeletonKey MyStaticMeshIfAny;
 		//this is literally smaller than an optional. *sigh*
 		//if set, this trigger will act like an aura around that transform's center. it does not perform a minkowsky sum. Just measures from the center. Crudely.
 		FBarrageKey MyTransformLinkIfAny;

@@ -207,7 +207,6 @@ FSkeletonKey UArtilleryProjectileDispatch::QueueKinematicProjectileInstance(cons
 																   TArray<FGameplayTag>* TagArray,
 																   int LifetimeInTicks)
 {
-	if (IsReady){}
 	TWeakObjectPtr<AInstancedMeshManager>* MeshManagerPtr = ProjectileNameToMeshManagerMapping->Find(ProjectileDefinitionId);
 	if (MeshManagerPtr != nullptr && MeshManagerPtr->IsValid())
 	{

@@ -89,15 +89,17 @@ public:
 	
 	FSkeletonKey GenerateNewProjectileKey()
 	{
+		
+		return SGenerateNewProjectileKey( GetTypeHash(SwarmKineManager) ,FMMM::FastHash32(++instances_generated));
+	}
+	static FSkeletonKey SGenerateNewProjectileKey(uint32 OwnerID, uint32 MonotonicOrUniqueHash)
+	{
 		//You would not believe how much trouble this caused. you just would not believe it.
 		//TODO: this is not currently deterministic in some senses. ensure it is not an issue for sim (thread ordering produces diff keys)
-		//likely, we want something like an atomic instead of instances generated or we want something that lets us better mark out when and why
-		//in a lexical ordering. it's not an easy problem. I think it'll be vastly simplified by breaking skeleton keys into type short,meta short,hash uint
-		//that'll let us use meta for ordering in some cases and verity in others.
 		std::hash<std::thread::id> hasher;
 		uint32 low = HashCombineFast(
-				HashCombineFast(GetTypeHash(SwarmKineManager),  FMMM::FastHash32(++instances_generated)),
-				FRequestRouter::HashDownTo32( hasher(std::this_thread::get_id())));
+				HashCombineFast(OwnerID, MonotonicOrUniqueHash,
+				FRequestRouter::HashDownTo32( hasher(std::this_thread::get_id()))));
 		uint64 combo = low;
 		combo = (combo << 32) + low;
 		return FProjectileInstanceKey(combo);
